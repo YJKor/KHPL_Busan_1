@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 한상민이 만든 스크립트, 문 오픈 스크립트
+/// From Sangmin
 /// </summary>
 public class OpenDoor : MonoBehaviour
 {
