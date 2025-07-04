@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1036742154262",
+    "project_id": "vr-touring-busan",
+    "storage_bucket": "vr-touring-busan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1036742154262:android:d0bfb97b39a6ced87f7d37",
+        "android_client_info": {
+          "package_name": "com.UnityTechnologies.com.unity.template.urpblank"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjdcVU7hBUQ9yKznOtH4qnIp1AjLXXkqU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
