@@ -29,10 +29,10 @@ public class PhotonManager : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    async void Start()
-    {
+    //async void Start()
+    //{
 
-    }
+    //}
 
     // Firebase 익명 로그인 성공 후 호출될 함수
     public async void ConnectToLobby()
