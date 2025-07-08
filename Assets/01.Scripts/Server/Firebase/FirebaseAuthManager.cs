@@ -118,8 +118,9 @@ public class FirebaseAuthManager
 
     public void LogOut()
     {
-        auth.SignOut();
-        Debug.Log("LogOut");
+        Application.Quit();
+        Debug.Log("게임종료");
+        LoggedInUserID = null;
     }
 
 }
