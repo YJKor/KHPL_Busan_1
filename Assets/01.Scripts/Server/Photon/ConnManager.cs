@@ -14,6 +14,8 @@ public class ConnManager : MonoBehaviour, INetworkRunnerCallbacks
 
     private NetworkRunner _runner;
 
+    [SerializeField] private Vector3 spawnPoint = new Vector3(-80, 0, -210);
+
     async void Start()
     {
         _runner = gameObject.AddComponent<NetworkRunner>();
@@ -84,7 +86,7 @@ public class ConnManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         Debug.Log($"OnPlayerJoined : {player.ToString()}");
 
-        Vector3 spawnPosition = UnityEngine.Random.insideUnitSphere * 5;
+        Vector3 spawnPosition = new Vector3(spawnPoint.x, spawnPoint.y, spawnPoint.z);
         spawnPosition.y = 1;
 
         NetworkObject networkPlayerObject = runner.Spawn(playerPrefab, spawnPosition, Quaternion.identity, player);
