@@ -140,12 +140,12 @@ public class ArrowController : MonoBehaviour
     /// <param name="target">충돌한 타겟 오브젝트</param>
     void ProcessTarget(GameObject target)
     {
-        // 타겟이 파괴 가능한 오브젝트인지 확인
-        DestructibleObject destructible = target.GetComponent<DestructibleObject>();
-        if (destructible != null)
+        // 타겟이 적군인지 확인 (VR 디펜스 게임용)
+        EnemyController enemy = target.GetComponent<EnemyController>();
+        if (enemy != null)
         {
-            // 데미지 적용
-            destructible.TakeDamage(damage);
+            // 적군에 데미지 적용
+            enemy.TakeDamage(damage);
 
             // 파괴 이펙트 생성
             if (destroyEffectPrefab != null)
@@ -167,7 +167,37 @@ public class ArrowController : MonoBehaviour
             {
                 scoreManager.AddScore(destroyScore);
             }
+
+            return; // 적군 처리가 완료되었으므로 다른 처리 중단
         }
+        //// 타겟이 파괴 가능한 오브젝트인지 확인
+        //DestructibleObject destructible = target.GetComponent<DestructibleObject>();
+        //if (destructible != null)
+        //{
+        //    // 데미지 적용
+        //    destructible.TakeDamage(damage);
+
+        //    // 파괴 이펙트 생성
+        //    if (destroyEffectPrefab != null)
+        //    {
+        //        Vector3 targetPosition = target.transform.position;
+        //        GameObject destroyEffect = Instantiate(destroyEffectPrefab, targetPosition, Quaternion.identity);
+        //        Destroy(destroyEffect, 5f);
+        //    }
+
+        //    // 파괴 사운드 재생
+        //    if (destroySound != null && _audioSource != null)
+        //    {
+        //        _audioSource.PlayOneShot(destroySound);
+        //    }
+
+        //    // 추가 점수 (파괴 보너스)
+        //    ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
+        //    if (scoreManager != null)
+        //    {
+        //        scoreManager.AddScore(destroyScore);
+        //    }
+        //}
 
         // 타겟이 체력 시스템을 가진 오브젝트인지 확인
         HealthSystem healthSystem = target.GetComponent<HealthSystem>();
