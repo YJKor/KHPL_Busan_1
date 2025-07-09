@@ -1,16 +1,20 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Fusion;
 using Fusion.Sockets;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class ConnManager : MonoBehaviour, INetworkRunnerCallbacks
 {
 
+    public NetworkPrefabRef playerPrefab;
+
+    Dictionary<PlayerRef, NetworkObject> spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
+
     private NetworkRunner _runner;
+
+    [SerializeField] private Vector3 spawnPoint = new Vector3(-80, 0, -210);
 
     async void Start()
     {
@@ -81,10 +85,23 @@ public class ConnManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         Debug.Log($"OnPlayerJoined : {player.ToString()}");
+
+        Vector3 spawnPosition = new Vector3(spawnPoint.x, spawnPoint.y, spawnPoint.z);
+        spawnPosition.y = 1;
+
+        NetworkObject networkPlayerObject = runner.Spawn(playerPrefab, spawnPosition, Quaternion.identity, player);
+        spawnedCharacters.Add(player, networkPlayerObject);
+
     }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
+        if(spawnedCharacters.TryGetValue(player, out NetworkObject networkObject))
+        {
+            Debug.Log($"OnPlayerLeft : {player.ToString()}");
+            runner.Despawn(networkObject);
+            spawnedCharacters.Remove(player);
+        }
     }
 
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)
