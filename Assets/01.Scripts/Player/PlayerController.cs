@@ -31,11 +31,11 @@ public class PlayerController : NetworkBehaviour
             // (InventoryManager는 로그인 상태 변경 시 자동으로 로드하므로,
             // 이 코드가 없어도 되지만 명시적으로 호출해 줄 수도 있습니다.)
             Debug.Log("플레이어 스폰 완료. 인벤토리 시스템과 연동합니다.");
-<<<<<<< HEAD
+
             //InventoryManager.Instance.LoadInventory();
-=======
-            InventoryManager.Instance.LoadInventory(); 
->>>>>>> efc2c48485b9790aac5017326d06ee25e7196d9b
+
+            //InventoryManager.Instance.LoadInventory(); 
+
         }
 
     }
