@@ -32,9 +32,7 @@ public class PlayerController : NetworkBehaviour
             // 이 코드가 없어도 되지만 명시적으로 호출해 줄 수도 있습니다.)
             Debug.Log("플레이어 스폰 완료. 인벤토리 시스템과 연동합니다.");
 
-            //InventoryManager.Instance.LoadInventory();
-
-            //InventoryManager.Instance.LoadInventory(); 
+            InventoryManager.Instance.LoadInventory(); 
 
         }
 
