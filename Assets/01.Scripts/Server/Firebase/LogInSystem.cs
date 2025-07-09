@@ -16,7 +16,7 @@ public class LogInSystem : MonoBehaviour
 
     void Start()
     {
-
+        FirebaseAuthManager.Instance.user = null;
         FirebaseAuthManager.Instance.LoginState += OnChangedState;
         FirebaseAuthManager.Instance.Init();
     }

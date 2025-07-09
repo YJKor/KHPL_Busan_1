@@ -23,6 +23,17 @@ public class PlayerController : NetworkBehaviour
         {
             Debug.LogError("Main Camera를 찾을 수 없습니다! XR Origin의 Main Camera에 'MainCamera' 태그가 있는지 확인해주세요.");
         }
+
+        if (Object.HasInputAuthority)
+        {
+            // 이 클라이언트가 조종 권한을 가진 플레이어일 경우
+            // InventoryManager에게 인벤토리 로드를 요청합니다.
+            // (InventoryManager는 로그인 상태 변경 시 자동으로 로드하므로,
+            // 이 코드가 없어도 되지만 명시적으로 호출해 줄 수도 있습니다.)
+            Debug.Log("플레이어 스폰 완료. 인벤토리 시스템과 연동합니다.");
+            InventoryManager.Instance.LoadInventory(); 
+        }
+
     }
     public override void FixedUpdateNetwork()
     {

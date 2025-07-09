@@ -198,7 +198,6 @@ GameObject:
   - component: {fileID: 4134505312059479865}
   - component: {fileID: -1582245010761406604}
   - component: {fileID: -4855362970165774260}
-  - component: {fileID: -1063190826083494731}
   m_Layer: 0
   m_Name: XR Interaction Setup
   m_TagString: Untagged
@@ -245,7 +244,6 @@ MonoBehaviour:
   - {fileID: 6735116857474002528}
   NetworkedBehaviours:
   - {fileID: -4855362970165774260}
-  - {fileID: -1063190826083494731}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &-4855362970165774260
 MonoBehaviour:
@@ -264,21 +262,6 @@ MonoBehaviour:
   SyncParent: 0
   _autoAOIOverride: 1
   DisableSharedModeInterpolation: 0
---- !u!114 &-1063190826083494731
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7313654230448209575}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 17b4514bcd6b72f49afd84f251102ffa, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _speed: 5
-  _moveAction: {fileID: 0}
-  _hmdTransform: {fileID: 0}
 --- !u!1001 &1560750817374408046
 PrefabInstance:
   m_ObjectHideFlags: 0
