@@ -10,10 +10,10 @@ GameObject:
   m_Component:
   - component: {fileID: 5245772841657653843}
   - component: {fileID: 7466288448734245952}
-  - component: {fileID: 1898217386467999641}
   - component: {fileID: -2045003720778405023}
   - component: {fileID: -9074456102221529503}
   - component: {fileID: -2007520868747414516}
+  - component: {fileID: 71451248465976774}
   m_Layer: 0
   m_Name: Bow
   m_TagString: Untagged
@@ -44,27 +44,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7846566377838933740}
   m_Mesh: {fileID: -9093801780835010590, guid: c32baef01e84d214d9571ff6ec2352f7, type: 3}
---- !u!65 &1898217386467999641
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7846566377838933740}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.19999996, y: 7.685687, z: 1.9788023}
-  m_Center: {x: 0.0000000037252903, y: -0.24748671, z: 0.2763235}
 --- !u!54 &-2045003720778405023
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -286,3 +265,25 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!64 &71451248465976774
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7846566377838933740}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -9093801780835010590, guid: c32baef01e84d214d9571ff6ec2352f7, type: 3}
