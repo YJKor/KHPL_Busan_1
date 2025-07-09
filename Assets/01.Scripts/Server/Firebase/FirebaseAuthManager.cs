@@ -1,7 +1,4 @@
-using System.Collections;
 using UnityEngine;
-using TMPro;
-using Firebase;
 using Firebase.Auth;
 using System;
 
@@ -12,7 +9,7 @@ public class FirebaseAuthManager
 
     private static FirebaseAuthManager _instance = null;
 
-        public static FirebaseAuthManager Instance
+    public static FirebaseAuthManager Instance
     {
         get
         {
@@ -29,7 +26,10 @@ public class FirebaseAuthManager
     public FirebaseAuth auth;
     public FirebaseUser user;
 
-    public string UserId => user.UserId;
+
+
+    public static string LoggedInUserID { get; private set; }
+    public string UserId => user != null ? user.UserId : "";
 
 
     public Action<bool> LoginState;
@@ -42,31 +42,29 @@ public class FirebaseAuthManager
             LogOut();
         }
 
-       auth.StateChanged += OnChanged;
+        auth.StateChanged += OnChanged;
     }
 
 
-    void OnChanged(object sender,EventArgs e)
+    void OnChanged(object sender, EventArgs e)
     {
         if (auth.CurrentUser != user)
         {
-            bool isSigned = (auth.CurrentUser != user && auth.CurrentUser != null);
-            if (!isSigned && user != null)
-            {
-                Debug.Log("로그아웃");
-                LoginState?.Invoke(false);
-            }
-
+            bool isSigned = (auth.CurrentUser != null); // 로직 단순화
             user = auth.CurrentUser;
-            
+
             if (isSigned)
             {
-                Debug.Log("로그인");
+                Debug.Log($"로그인: {user.UserId}");
+                LoggedInUserID = user.UserId; 
                 LoginState?.Invoke(true);
-
-
             }
-            
+            else
+            {
+                Debug.Log("로그아웃");
+                LoggedInUserID = null; 
+                LoginState?.Invoke(false);
+            }
         }
     }
 
@@ -91,7 +89,7 @@ public class FirebaseAuthManager
             Debug.Log("회원가입 성공");
 
         });
-    
+
     }
 
 
@@ -115,16 +113,25 @@ public class FirebaseAuthManager
 
         });
 
-       
+
     }
 
     public void LogOut()
     {
-        auth.SignOut();
-        Debug.Log("LogOut");
+        if (auth.CurrentUser != null)
+        {
+            auth.SignOut();
+            Debug.Log("로그아웃");
+            LoggedInUserID = null;
+        }
     }
 
 
-
+    public void GameExit()
+    {
+        Application.Quit();
+        Debug.Log("게임종료");
+        LoggedInUserID = null;
+    }
 
 }

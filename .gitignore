@@ -97,3 +97,22 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+
+
+
+/[Aa]ssets/*
+
+
+!/[Aa]ssets/01.Scripts/
+!/[Aa]ssets/01.Scripts.meta
+
+!/[Aa]ssets/03.Scenes/
+!/[Aa]ssets/03.Scenes.meta
+
+!/[Aa]ssets/06.ScriptableObject/
+!/[Aa]ssets/06.ScriptableObject.meta
+
+!/[Aa]ssets/Photon
+!/[Aa]ssets/Photon.meta
+
