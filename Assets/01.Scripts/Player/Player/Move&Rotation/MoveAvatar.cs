@@ -4,25 +4,38 @@ using UnityEngine;
 
 public class MoveAvatar : MonoBehaviour
 {
-    public Transform cameraRotation;
+    [Tooltip("이동 및 회전을 추적할 XR Origin Transform")]
+    public Transform xrOriginTransform;
+    [Tooltip("Camera Transform (Y축 회전 기준, HMD 또는 MainCamera)")]
+    public Transform cameraTransform;
 
-    private Vector3 prevCameraPos;
+    private Vector3 prevXROriginPosition;
 
-    void Start()
+    private void Start()
     {
-        prevCameraPos = cameraRotation.position;
+        if (xrOriginTransform == null || cameraTransform == null)
+        {
+            Debug.LogError("XR Origin과 Camera Transform을 모두 할당하세요.");
+            enabled = false;
+            return;
+        }
+
+        // 초기 위치 저장
+        prevXROriginPosition = xrOriginTransform.position;
     }
 
-    void Update()
+    private void LateUpdate()
     {
-        Vector3 cameraDelta = cameraRotation.position - prevCameraPos;
+        // XR Origin의 이동 거리 계산
+        Vector3 delta = xrOriginTransform.position - prevXROriginPosition;
+        // 그 이동 거리만큼 캐릭터 오브젝트를 이동
+        transform.position += delta;
 
-        Vector3 newPosition = transform.position + new Vector3(cameraDelta.x, 0, cameraDelta.z);
-        transform.position = newPosition;
+        // 카메라의 Y축 회전을 따라감 (상하 회전 무시)
+        Vector3 cameraEuler = cameraTransform.rotation.eulerAngles;
+        transform.rotation = Quaternion.Euler(0f, cameraEuler.y, 0f);
 
-        Vector3 camEuler = cameraRotation.rotation.eulerAngles;
-        transform.rotation = Quaternion.Euler(0, camEuler.y, 0);
-
-        prevCameraPos = cameraRotation.position;
+        // 다음 프레임 대비 XR Origin 위치 저장
+        prevXROriginPosition = xrOriginTransform.position;
     }
 }
