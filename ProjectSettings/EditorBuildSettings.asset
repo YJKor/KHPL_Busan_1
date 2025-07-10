@@ -4,28 +4,5 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-<<<<<<< HEAD
   m_Scenes: []
-=======
-  m_Scenes:
-
-=======
-  - enabled: 1
-    path: Assets/03.Scenes/LoginScene.unity
-    guid: 29ae6349c647fea4db20608a8dfe06f3
-  - enabled: 1
-    path: Assets/03.Scenes/NetPlayScene.unity
-    guid: d4648de36d77b7a4da9ab1e05d6fbacd
-  - enabled: 1
-    path: Assets/03.Scenes/LobbyMap.unity
-    guid: 0f85844df7789c148a8ed09a5486ea0b
-  - enabled: 1
-
-    path: Assets/03.Scenes/Defense_Map.unity
-    guid: 8b30472feb21a4a4ab4457c116e593f2
->>>>>>> efc2c48485b9790aac5017326d06ee25e7196d9b
-  m_configObjects:
-    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 05d47938d41406248bf77af862f90de2,
-      type: 2}
-    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: b70d6560fdfe96e4fbd03b7d6bbb8fcf,
-      type: 2}
+  m_configObjects: {}
