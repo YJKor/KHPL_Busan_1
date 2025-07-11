@@ -207,6 +207,7 @@ public class HealthSystem : MonoBehaviour
         }
     }
 
+
     /// <summary>
     /// 오브젝트를 완전히 회복시키는 함수
     /// 체력을 최대값으로 설정합니다 (사망 상태가 아닌 경우).
