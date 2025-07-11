@@ -1,6 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -15,6 +13,9 @@ public class NPC_Movement : MonoBehaviour
     private Animator animator;
     private NavMeshAgent nav;
 
+    [HideInInspector]
+    public bool isTalking = false;
+
     private void Awake()
     {
         animator = GetComponent<Animator>();
@@ -24,11 +25,6 @@ public class NPC_Movement : MonoBehaviour
     void Start()
     {
         StartCoroutine(MoveNPC());
-    }
-
-    void Update()
-    {
-        
     }
 
     private IEnumerator MoveNPC()
@@ -45,7 +41,12 @@ public class NPC_Movement : MonoBehaviour
             float timer = 0f;
             while (timer < moveTime)
             {
-                if(!nav.pathPending && nav.remainingDistance < 0.5f)
+                if (isTalking)
+                {
+                    break;
+                }
+
+                if (!nav.pathPending && nav.remainingDistance < 0.5f)
                 {
                     dest = RandomNavmeshLocation(wanderRadius);
                     nav.SetDestination(dest);
@@ -65,6 +66,11 @@ public class NPC_Movement : MonoBehaviour
     {
         if (animator != null)
             animator.SetBool("Walking", isWalking);
+    }
+
+    public void SetTalking()
+    {
+        isTalking = true;
     }
 
     Vector3 RandomNavmeshLocation(float radius)
