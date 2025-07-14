@@ -8,6 +8,7 @@ TagManager:
   - StringAttachPoint
   - Castle
   - CastleWall
+  - Arrow
   layers:
   - Default
   - TransparentFX
