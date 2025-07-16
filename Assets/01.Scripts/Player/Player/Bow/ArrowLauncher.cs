@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit;
 
 /// <summary>
 /// 화살 발사 및 비행을 담당하는 컴포넌트
@@ -41,7 +41,7 @@ public class ArrowLauncher : MonoBehaviour
     // 내부 변수
     private Rigidbody _rigidBody;
     private bool _inAir = false;
-    private XRPullInteractable _pullInteractable;
+    private MonoBehaviour _pullInteractable; // XRPullInteractable 대신 MonoBehaviour 사용
     private AudioSource _audioSource;
     private ArrowImpactHandler _impactHandler;
     private Vector3 _launchPosition;
@@ -50,6 +50,7 @@ public class ArrowLauncher : MonoBehaviour
     // 이벤트
     public System.Action OnArrowLaunched;
     public System.Action OnArrowStopped;
+    public System.Action<float> OnPullStrengthChanged; // 당김 강도 이벤트 추가
 
     private void Awake()
     {
@@ -81,33 +82,35 @@ public class ArrowLauncher : MonoBehaviour
     }
 
     /// <summary>
-    /// XR Pull Interactable과 연동을 초기화합니다.
+    /// Pull Interactable과 연동을 초기화합니다.
     /// </summary>
-    /// <param name="pullInteractable">연동할 XRPullInteractable</param>
-    public void Initialize(XRPullInteractable pullInteractable)
+    /// <param name="pullInteractable">연동할 Pull Interactable</param>
+    public void Initialize(MonoBehaviour pullInteractable)
     {
         _pullInteractable = pullInteractable;
-        _pullInteractable.PullActionReleased += Release;
-    }
-
-    private void OnDestroy()
-    {
-        if (_pullInteractable != null)
+        
+        // 리플렉션을 사용하여 이벤트 연결
+        var eventInfo = pullInteractable.GetType().GetEvent("PullActionReleased");
+        if (eventInfo != null)
         {
-            _pullInteractable.PullActionReleased -= Release;
+            var delegateType = eventInfo.EventHandlerType;
+            var methodInfo = GetType().GetMethod("Release", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            
+            if (methodInfo != null)
+            {
+                var handler = System.Delegate.CreateDelegate(delegateType, this, methodInfo);
+                eventInfo.AddEventHandler(pullInteractable, handler);
+            }
         }
     }
 
     /// <summary>
-    /// 화살을 발사합니다.
+    /// 수동으로 화살을 발사합니다.
     /// </summary>
-    /// <param name="value">당김 강도 (0-1)</param>
-    private void Release(float value)
+    /// <param name="pullStrength">당김 강도 (0-1)</param>
+    public void LaunchArrow(float pullStrength)
     {
-        if (_pullInteractable != null)
-        {
-            _pullInteractable.PullActionReleased -= Release;
-        }
+        if (_inAir) return; // 이미 비행 중이면 발사하지 않음
 
         // 화살을 부모에서 분리
         gameObject.transform.parent = null;
@@ -124,13 +127,16 @@ public class ArrowLauncher : MonoBehaviour
         }
 
         // 발사 힘 계산 및 적용
-        Vector3 force = transform.forward * value * _speed;
-        _rigidBody.AddForce(force, ForceMode.Impulse);
-
-        // 회전력 추가
-        if (_spinForce > 0)
+        Vector3 force = transform.forward * pullStrength * _speed;
+        if (_rigidBody != null)
         {
-            _rigidBody.AddTorque(transform.right * _spinForce, ForceMode.Impulse);
+            _rigidBody.AddForce(force, ForceMode.Impulse);
+
+            // 회전력 추가
+            if (_spinForce > 0)
+            {
+                _rigidBody.AddTorque(transform.right * _spinForce, ForceMode.Impulse);
+            }
         }
 
         // 발사 이펙트 생성
@@ -147,9 +153,38 @@ public class ArrowLauncher : MonoBehaviour
 
         // 이벤트 호출
         OnArrowLaunched?.Invoke();
+        OnPullStrengthChanged?.Invoke(pullStrength);
 
         // 속도에 따른 회전 코루틴 시작
         StartCoroutine(RotateWithVelocity());
+    }
+
+    /// <summary>
+    /// 화살을 발사합니다. (이벤트 핸들러용)
+    /// </summary>
+    /// <param name="value">당김 강도 (0-1)</param>
+    private void Release(float value)
+    {
+        LaunchArrow(value);
+    }
+
+    private void OnDestroy()
+    {
+        // 이벤트 리스너 제거
+        if (_pullInteractable != null)
+        {
+            var eventInfo = _pullInteractable.GetType().GetEvent("PullActionReleased");
+            if (eventInfo != null)
+            {
+                var methodInfo = GetType().GetMethod("Release", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (methodInfo != null)
+                {
+                    var delegateType = eventInfo.EventHandlerType;
+                    var handler = System.Delegate.CreateDelegate(delegateType, this, methodInfo);
+                    eventInfo.RemoveEventHandler(_pullInteractable, handler);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -278,6 +313,33 @@ public class ArrowLauncher : MonoBehaviour
         return _inAir ? Time.time - _launchTime : 0f;
     }
 
+    /// <summary>
+    /// 화살의 발사 속도를 설정합니다.
+    /// </summary>
+    /// <param name="speed">새로운 발사 속도</param>
+    public void SetLaunchSpeed(float speed)
+    {
+        _speed = speed;
+    }
+
+    /// <summary>
+    /// 화살의 회전력을 설정합니다.
+    /// </summary>
+    /// <param name="spinForce">새로운 회전력</param>
+    public void SetSpinForce(float spinForce)
+    {
+        _spinForce = spinForce;
+    }
+
+    /// <summary>
+    /// 화살의 최대 거리를 설정합니다.
+    /// </summary>
+    /// <param name="maxDistance">새로운 최대 거리</param>
+    public void SetMaxDistance(float maxDistance)
+    {
+        _maxDistance = maxDistance;
+    }
+
     void Update()
     {
         // 최대 거리 초과 시 화살 파괴
@@ -285,5 +347,25 @@ public class ArrowLauncher : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    /// <summary>
+    /// 디버그 정보를 출력합니다.
+    /// </summary>
+    [ContextMenu("Debug Arrow Info")]
+    public void DebugArrowInfo()
+    {
+        Debug.Log($"=== 화살 디버그 정보 ===");
+        Debug.Log($"화살 이름: {gameObject.name}");
+        Debug.Log($"비행 중: {_inAir}");
+        Debug.Log($"Rigidbody: {(_rigidBody != null ? "있음" : "없음")}");
+        Debug.Log($"AudioSource: {(_audioSource != null ? "있음" : "없음")}");
+        Debug.Log($"ArrowImpactHandler: {(_impactHandler != null ? "있음" : "없음")}");
+        Debug.Log($"발사 속도: {_speed}");
+        Debug.Log($"회전력: {_spinForce}");
+        Debug.Log($"최대 거리: {_maxDistance}");
+        Debug.Log($"현재 속도: {GetCurrentVelocity()}");
+        Debug.Log($"비행 시간: {GetFlightTime()}");
+        Debug.Log("========================");
     }
 }
