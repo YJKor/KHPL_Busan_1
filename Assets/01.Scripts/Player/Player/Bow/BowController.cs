@@ -1,97 +1,349 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using System.Collections;
 
+/// <summary>
+/// VR í™œì˜ê¸° ì»¨íŠ¸ë¡¤ëŸ¬ - XR Interaction Toolkit ê¸°ë°˜
+/// í™œ ì‹œìœ„ ì¡°ì‘, í™”ì‚´ ë°œì‚¬, ë¬¼ë¦¬ ì‹œë®¬ë ˆì´ì…˜ì„ ë‹´ë‹¹
+/// ArrowLauncherì™€ ArrowImpactHandlerì™€ ì™„ë²½í•˜ê²Œ ì—°ë™ë©ë‹ˆë‹¤.
+/// </summary>
 public class BowController : MonoBehaviour
 {
     [Header("String & Nocking")]
-    [SerializeField] private LineRenderer bowStringRenderer; // È° ½ÃÀ§¸¦ Ç¥½ÃÇÒ ¶óÀÎ ·»´õ·¯
-    [SerializeField] private Transform stringStartPoint;     // ½ÃÀ§ ½ÃÀÛÁ¡
-    [SerializeField] private Transform stringEndPoint;       // ½ÃÀ§ ³¡Á¡
-    [SerializeField] private XRSocketInteractor nockSocket;  // È­»ìÀ» ÀåÀüÇÒ ¼ÒÄÏ
+    [Tooltip("í™œ ì‹œìœ„ë¥¼ í‘œì‹œí•  ë¼ì¸ ë Œë”ëŸ¬")]
+    [SerializeField] private LineRenderer bowStringRenderer;
+    
+    [Tooltip("ì‹œìœ„ ì‹œì‘ì ")]
+    [SerializeField] private Transform stringStartPoint;
+    
+    [Tooltip("ì‹œìœ„ ëì ")]
+    [SerializeField] private Transform stringEndPoint;
+    
+    [Tooltip("í™”ì‚´ì„ ë¼ìš°ëŠ” ì†Œì¼“")]
+    [SerializeField] private XRSocketInteractor nockSocket;
 
-    [Header("Arrow")]
-    [SerializeField] private GameObject arrowPrefab;         // È­»ì ÇÁ¸®ÆÕ
-    [SerializeField] private Transform arrowSpawnPoint;      // È­»ì »ı¼º À§Ä¡
-    private IXRSelectInteractable nockedArrow = null; // ÀåÀüµÈ È­»ì
-    private bool isArrowNocked = false;               // È­»ìÀÌ ÀåÀüµÇ¾ú´ÂÁö »óÅÂ
+    [Header("Arrow System")]
+    [Tooltip("í™”ì‚´ í”„ë¦¬íŒ¹")]
+    [SerializeField] private GameObject arrowPrefab;
+    
+    [Tooltip("í™”ì‚´ ìƒì„± ìœ„ì¹˜")]
+    [SerializeField] private Transform arrowSpawnPoint;
+    
+    [Tooltip("ìë™ í™”ì‚´ ìƒì„± ê°„ê²© (ì´ˆ)")]
+    [SerializeField] private float arrowSpawnInterval = 2f;
+    
+    [Tooltip("ìµœëŒ€ ë³´ìœ  í™”ì‚´ ìˆ˜")]
+    [SerializeField] private int maxArrows = 10;
 
     [Header("Shooting")]
-    [SerializeField] private float shootingForceMultiplier = 20f; // ¹ß»ç Èû ¹è¼ö
-    [SerializeField] private float maxPullDistance = 0.5f;        // ÃÖ´ë ´ç±è °Å¸®
+    [Tooltip("ë°œì‚¬ í˜ ë°°ìˆ˜")]
+    [SerializeField] private float shootingForceMultiplier = 25f;
+    
+    [Tooltip("ìµœëŒ€ ë‹¹ê¹€ ê±°ë¦¬")]
+    [SerializeField] private float maxPullDistance = 0.6f;
+    
+    [Tooltip("ì‹œìœ„ ì¥ë ¥ ë°°ìˆ˜")]
+    [SerializeField] private float stringTension = 1.2f;
+
+    [Header("Visual & Audio")]
+    [Tooltip("ì‹œìœ„ ë‹¹ê¹€ ì‚¬ìš´ë“œ")]
+    [SerializeField] private AudioClip pullSound;
+    
+    [Tooltip("í™”ì‚´ ë°œì‚¬ ì‚¬ìš´ë“œ")]
+    [SerializeField] private AudioClip releaseSound;
+    
+    [Tooltip("í™”ì‚´ ì¥ì°© ì‚¬ìš´ë“œ")]
+    [SerializeField] private AudioClip nockSound;
+    
+    [Tooltip("ì‹œìœ„ ìƒ‰ìƒ")]
+    [SerializeField] private Color stringColor = Color.white;
+    
+    [Tooltip("ì‹œìœ„ ë‘ê»˜")]
+    [SerializeField] private float stringWidth = 0.005f;
 
     [Header("Debug")]
-    [SerializeField] private bool enableDebugLogs = true;         // µğ¹ö±× ·Î±× È°¼ºÈ­
+    [Tooltip("ë””ë²„ê·¸ ë¡œê·¸ í™œì„±í™”")]
+    [SerializeField] private bool enableDebugLogs = true;
+
+    // ë‚´ë¶€ ë³€ìˆ˜
+    private IXRSelectInteractable nockedArrow = null;
+    private bool isArrowNocked = false;
+    private bool isStringPulled = false;
+    private Transform pullingHand = null;
+    private float currentPullDistance = 0f;
+    private Vector3 originalStringPosition;
+    private AudioSource audioSource;
+    private int currentArrowCount = 0;
+    private Coroutine arrowSpawnCoroutine;
+    private XRPullInteractable stringPullInteractable;
+
+    // ì´ë²¤íŠ¸
+    public System.Action<float> OnPullStrengthChanged;
+    public System.Action OnArrowReleased;
+    public System.Action<int> OnArrowCountChanged;
 
     private void Awake()
     {
-        // XR Socket InteractorÀÇ ÀÌº¥Æ®¿¡ ÇÔ¼ö¸¦ ¿¬°áÇÕ´Ï´Ù.
-        nockSocket.selectEntered.AddListener(OnArrowNocked);
-        nockSocket.selectExited.AddListener(OnArrowRemoved);
-
-        // ÃÊ±â È° ½ÃÀ§ À§Ä¡ ¼³Á¤
-        ResetBowString();
+        InitializeBow();
     }
 
     private void OnDestroy()
-    // ÀÌº¥Æ® Á¦°Å ½Ã ¸®½º³Ê¸¦ Á¦°ÅÇÕ´Ï´Ù.
     {
-        nockSocket.selectEntered.RemoveListener(OnArrowNocked);
-        nockSocket.selectExited.RemoveListener(OnArrowRemoved);
+        // ì´ë²¤íŠ¸ ë¦¬ìŠ¤ë„ˆ ì œê±°
+        if (nockSocket != null)
+        {
+            nockSocket.selectEntered.RemoveListener(OnArrowNocked);
+            nockSocket.selectExited.RemoveListener(OnArrowRemoved);
+        }
+        
+        if (stringPullInteractable != null)
+        {
+            stringPullInteractable.PullActionReleased -= OnStringReleased;
+        }
     }
 
-    // ¸Å ÇÁ·¹ÀÓ È£Ãâ
-    void Update()
+    /// <summary>
+    /// í™œ ì´ˆê¸°í™”
+    /// </summary>
+    private void InitializeBow()
     {
-        if (isArrowNocked && nockedArrow != null)
+        // AudioSource ì»´í¬ë„ŒíŠ¸ ì°¾ê¸° ë˜ëŠ” ì¶”ê°€
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
         {
-            // µğ¹ö±× ·Î±× Ãß°¡
-            if (enableDebugLogs)
-                Debug.Log("Update: È­»ìÀÌ ÀåÀüµÇ¾î ÀÖ½À´Ï´Ù. ¼Õ À§Ä¡¸¦ Ã£½À´Ï´Ù.");
-
-            // È­»ìÀÌ ÀåÀüµÇ¾î ÀÖ´Ù¸é, È­»ìÀ» Àâ°í ÀÖ´Â ¼ÕÀÇ À§Ä¡¸¦ Ã£¾Æ¼­ ½ÃÀ§¸¦ ¾÷µ¥ÀÌÆ®ÇÕ´Ï´Ù.
-            IXRSelectInteractor hand = nockedArrow.firstInteractorSelecting;
-            if (hand != null)
-            {
-                // ¼ÕÀÇ À§Ä¡·Î È° ½ÃÀ§¸¦ ¾÷µ¥ÀÌÆ®
-                UpdateBowString(hand.transform.position);
-
-                if (enableDebugLogs)
-                    Debug.Log($"¼Õ À§Ä¡: {hand.transform.position}, ½ÃÀ§ ¾÷µ¥ÀÌÆ®µÊ");
-            }
-            else
-            {
-                if (enableDebugLogs)
-                    Debug.LogWarning("¼ÕÀ» Ã£À» ¼ö ¾ø½À´Ï´Ù!");
-            }
+            audioSource = gameObject.AddComponent<AudioSource>();
         }
-        else
+
+        // ì‹œìœ„ ì´ˆê¸°í™”
+        SetupBowString();
+
+        // ì´ë²¤íŠ¸ ë¦¬ìŠ¤ë„ˆ ë“±ë¡
+        if (nockSocket != null)
         {
-            // È­»ìÀÌ ¾øÀ¸¸é ½ÃÀ§¸¦ ±âº» À§Ä¡·Î µÇµ¹¸³´Ï´Ù.
+            nockSocket.selectEntered.AddListener(OnArrowNocked);
+            nockSocket.selectExited.AddListener(OnArrowRemoved);
+        }
+
+        // ì‹œìœ„ ë‹¹ê¹€ ê°ì§€ ì„¤ì •
+        SetupStringPullDetection();
+
+        // ìë™ í™”ì‚´ ìƒì„± ì‹œì‘
+        StartArrowSpawning();
+
+        if (enableDebugLogs)
+            Debug.Log("í–¥ìƒëœ í™œ ì»¨íŠ¸ë¡¤ëŸ¬ê°€ ì´ˆê¸°í™”ë˜ì—ˆìŠµë‹ˆë‹¤.");
+    }
+
+    /// <summary>
+    /// í™œ ì‹œìœ„ ì„¤ì •
+    /// </summary>
+    private void SetupBowString()
+    {
+        if (bowStringRenderer == null)
+        {
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
+        }
+
+        bowStringRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        bowStringRenderer.startColor = stringColor;
+        bowStringRenderer.endColor = stringColor;
+        bowStringRenderer.startWidth = stringWidth;
+        bowStringRenderer.endWidth = stringWidth;
+        bowStringRenderer.positionCount = 2;
+        bowStringRenderer.useWorldSpace = true;
+
+        // ì‹œìœ„ ê¸°ë³¸ ìœ„ì¹˜ ì„¤ì •
+        if (stringStartPoint != null && stringEndPoint != null)
+        {
+            originalStringPosition = (stringStartPoint.position + stringEndPoint.position) * 0.5f;
             ResetBowString();
         }
     }
 
-    // È­»ìÀÌ ¼ÒÄÏ¿¡ µé¾î°¡¼­ ÀåÀüµÉ ¶§ È£ÃâµÇ´Â ÇÔ¼ö
+    /// <summary>
+    /// ì‹œìœ„ ë‹¹ê¹€ ê°ì§€ ì„¤ì •
+    /// </summary>
+    private void SetupStringPullDetection()
+    {
+        // XRPullInteractable ì»´í¬ë„ŒíŠ¸ ì°¾ê¸° ë˜ëŠ” ì¶”ê°€
+        stringPullInteractable = GetComponent<XRPullInteractable>();
+        if (stringPullInteractable == null)
+        {
+            stringPullInteractable = gameObject.AddComponent<XRPullInteractable>();
+        }
+
+        // ì‹œìœ„ ë‹¹ê¹€ ì´ë²¤íŠ¸ ë“±ë¡
+        stringPullInteractable.PullActionReleased += OnStringReleased;
+    }
+
+    /// <summary>
+    /// ìë™ í™”ì‚´ ìƒì„± ì‹œì‘
+    /// </summary>
+    private void StartArrowSpawning()
+    {
+        if (arrowSpawnCoroutine != null)
+        {
+            StopCoroutine(arrowSpawnCoroutine);
+        }
+        arrowSpawnCoroutine = StartCoroutine(AutoArrowSpawn());
+    }
+
+    /// <summary>
+    /// ìë™ í™”ì‚´ ìƒì„± ì½”ë£¨í‹´
+    /// </summary>
+    private IEnumerator AutoArrowSpawn()
+    {
+        while (currentArrowCount < maxArrows)
+        {
+            yield return new WaitForSeconds(arrowSpawnInterval);
+            if (currentArrowCount < maxArrows)
+            {
+                SpawnArrowInHand();
+            }
+        }
+    }
+
+    /// <summary>
+    /// ì†ì— í™”ì‚´ ìƒì„±
+    /// </summary>
+    private void SpawnArrowInHand()
+    {
+        if (arrowPrefab != null && arrowSpawnPoint != null)
+        {
+            GameObject newArrow = Instantiate(arrowPrefab, arrowSpawnPoint.position, arrowSpawnPoint.rotation);
+            SetupArrowComponents(newArrow);
+            currentArrowCount++;
+            OnArrowCountChanged?.Invoke(currentArrowCount);
+
+            if (enableDebugLogs)
+                Debug.Log($"í™”ì‚´ì´ ìƒì„±ë˜ì—ˆìŠµë‹ˆë‹¤. í˜„ì¬ í™”ì‚´ ìˆ˜: {currentArrowCount}");
+        }
+    }
+
+    /// <summary>
+    /// í™”ì‚´ ì»´í¬ë„ŒíŠ¸ ì„¤ì •
+    /// </summary>
+    /// <param name="arrow">ì„¤ì •í•  í™”ì‚´ ì˜¤ë¸Œì íŠ¸</param>
+    private void SetupArrowComponents(GameObject arrow)
+    {
+        // ArrowLauncher ì»´í¬ë„ŒíŠ¸ ì„¤ì •
+        ArrowLauncher launcher = arrow.GetComponent<ArrowLauncher>();
+        if (launcher != null)
+        {
+            launcher.Initialize(stringPullInteractable);
+            
+            // ì´ë²¤íŠ¸ ì—°ê²°
+            launcher.OnArrowLaunched += () => {
+                currentArrowCount--;
+                OnArrowCountChanged?.Invoke(currentArrowCount);
+                OnArrowReleased?.Invoke();
+                
+                if (enableDebugLogs)
+                    Debug.Log($"í™”ì‚´ì´ ë°œì‚¬ë˜ì—ˆìŠµë‹ˆë‹¤. ë‚¨ì€ í™”ì‚´ ìˆ˜: {currentArrowCount}");
+            };
+        }
+
+        // ArrowImpactHandler ì»´í¬ë„ŒíŠ¸ í™•ì¸
+        ArrowImpactHandler impactHandler = arrow.GetComponent<ArrowImpactHandler>();
+        if (impactHandler == null)
+        {
+            impactHandler = arrow.AddComponent<ArrowImpactHandler>();
+        }
+
+        // Rigidbody ì„¤ì •
+        Rigidbody rb = arrow.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
+
+        // Collider ì„¤ì •
+        Collider col = arrow.GetComponent<Collider>();
+        if (col != null)
+        {
+            col.isTrigger = false;
+        }
+    }
+
+    /// <summary>
+    /// ì‹œìœ„ ë‹¹ê¹€ í•´ì œ ì´ë²¤íŠ¸ ì²˜ë¦¬
+    /// </summary>
+    /// <param name="value">ë‹¹ê¹€ ê°•ë„ (0-1)</param>
+    private void OnStringReleased(float value)
+    {
+        if (isArrowNocked && nockedArrow != null)
+        {
+            // í™”ì‚´ ë°œì‚¬
+            FireArrow(value);
+            
+            // ì‹œìœ„ ë¦¬ì…‹
+            ResetBowString();
+            
+            // ë°œì‚¬ ì‚¬ìš´ë“œ ì¬ìƒ
+            if (releaseSound != null && audioSource != null)
+            {
+                audioSource.PlayOneShot(releaseSound);
+            }
+
+            if (enableDebugLogs)
+                Debug.Log($"í™”ì‚´ ë°œì‚¬! ë‹¹ê¹€ ê°•ë„: {value}");
+        }
+    }
+
+    // Update í•¨ìˆ˜
+    void Update()
+    {
+        if (isArrowNocked && nockedArrow != null)
+        {
+            // ë””ë²„ê·¸ ë¡œê·¸ ì¶”ê°€
+            if (enableDebugLogs)
+                Debug.Log("Update: í™”ì‚´ì´ ì¥ì°©ë˜ì–´ ìˆìŠµë‹ˆë‹¤. ì† ìœ„ì¹˜ë¥¼ ì°¾ìŠµë‹ˆë‹¤.");
+
+            // í™”ì‚´ì´ ì¥ì°©ë˜ì–´ ìˆë‹¤ë©´, í™”ì‚´ì„ ì¡ê³  ìˆëŠ” ì†ì˜ ìœ„ì¹˜ë¥¼ ì°¾ì•„ì„œ ì‹œìœ„ë¥¼ ì—…ë°ì´íŠ¸í•©ë‹ˆë‹¤.
+            IXRSelectInteractor hand = nockedArrow.firstInteractorSelecting;
+            if (hand != null)
+            {
+                // ì† ìœ„ì¹˜ë¡œ ì‹œìœ„ë¥¼ ì—…ë°ì´íŠ¸
+                UpdateBowString(hand.transform.position);
+
+                if (enableDebugLogs)
+                    Debug.Log($"ì† ìœ„ì¹˜: {hand.transform.position}, ì‹œìœ„ ì—…ë°ì´íŠ¸ë¨");
+            }
+            else
+            {
+                if (enableDebugLogs)
+                    Debug.LogWarning("ì†ì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤!");
+            }
+        }
+        else
+        {
+            // í™”ì‚´ì´ ì¥ì°©ë˜ì§€ ì•Šì•˜ë‹¤ë©´ ê¸°ë³¸ ìœ„ì¹˜ë¡œ ë˜ëŒë¦½ë‹ˆë‹¤.
+            ResetBowString();
+        }
+    }
+
+    // í™”ì‚´ì„ ì†Œì¼“ì— ë¼ìš°ê³  ìˆì„ ë•Œ í˜¸ì¶œë˜ëŠ” í•¨ìˆ˜
     private void OnArrowNocked(SelectEnterEventArgs args)
     {
-        // µğ¹ö±× ·Î±× Ãß°¡
+        // ë””ë²„ê·¸ ë¡œê·¸ ì¶”ê°€
         if (enableDebugLogs)
-            Debug.Log("È­»ìÀÌ ¼ÒÄÏ¿¡ µé¾î°¡¼­ ÀåÀüµÇ¾ú½À´Ï´Ù! (OnArrowNocked È£Ãâ)");
+            Debug.Log("í™”ì‚´ì„ ì†Œì¼“ì— ë¼ìš°ê³  ìˆëŠ” ê²ƒì´ ê°ì§€ë˜ì—ˆìŠµë‹ˆë‹¤! (OnArrowNocked í˜¸ì¶œ)");
 
         nockedArrow = args.interactableObject;
         isArrowNocked = true;
 
-        // È­»ìÀÌ ¼ÒÄÏ¿¡¼­ ³ª°¥ ¶§(¹ß»çµÇ°Å³ª ±×³É Á¦°ÅµÉ ¶§) Shoot ÇÔ¼ö¸¦ È£ÃâÇÏµµ·Ï ÀÌº¥Æ®¸¦ ¿¬°á
+        // í™”ì‚´ì„ ì†Œì¼“ì—ì„œ ì œê±°í•  ë•Œ(ë°œì‚¬ë˜ê±°ë‚˜ ê·¸ëƒ¥ ì œê±°ë  ë•Œ) Shoot í•¨ìˆ˜ë¥¼ í˜¸ì¶œí•˜ë„ë¡ ì´ë²¤íŠ¸ë¥¼ ì„¤ì •
         nockedArrow.selectExited.AddListener(Shoot);
 
         //if (enableDebugLogs)
-        //    Debug.Log($"È­»ì ÀåÀü ¿Ï·á: {nockedArrow.name}");
+        //    Debug.Log($"í™”ì‚´ ì¥ì°© ì™„ë£Œ: {nockedArrow.name}");
     }
 
-    // È­»ìÀÌ ¼ÒÄÏ¿¡¼­ ³ª°¥ ¶§(¹ß»çµÇ°Å³ª ±×³É Á¦°ÅµÉ ¶§) È£Ãâ
+    // í™”ì‚´ì„ ì†Œì¼“ì—ì„œ ì œê±°í•  ë•Œ(ë°œì‚¬ë˜ê±°ë‚˜ ê·¸ëƒ¥ ì œê±°ë  ë•Œ) í˜¸ì¶œ
     private void OnArrowRemoved(SelectExitEventArgs args)
     {
-        // ÀÌº¥Æ® ¸®½º³Ê Á¦°Å
+        // ì´ë²¤íŠ¸ ë¦¬ìŠ¤ë„ˆ ì œê±°
         if (args.interactableObject == nockedArrow)
         {
             nockedArrow.selectExited.RemoveListener(Shoot);
@@ -100,46 +352,82 @@ public class BowController : MonoBehaviour
             isArrowNocked = false;
 
             if (enableDebugLogs)
-                Debug.Log("È­»ìÀÌ Á¦°ÅµÇ¾ú½À´Ï´Ù.");
+                Debug.Log("í™”ì‚´ì´ ì œê±°ë˜ì—ˆìŠµë‹ˆë‹¤.");
         }
     }
 
-    // È­»ì ¹ß»ç ÇÔ¼ö
+    // í™”ì‚´ ë°œì‚¬ í•¨ìˆ˜
     private void Shoot(SelectExitEventArgs args)
     {
         if (enableDebugLogs)
-            Debug.Log("È­»ì ¹ß»ç! (Shoot ÇÔ¼ö È£Ãâ)");
+            Debug.Log("í™”ì‚´ ë°œì‚¬! (Shoot í•¨ìˆ˜ í˜¸ì¶œ)");
 
-        // args.interactorObject´Â È­»ìÀ» Àâ°í ÀÖ´Â ¼Õ(ÄÁÆ®·Ñ·¯)
-        // ´ç±è °Å¸®¸¦ °è»êÇÕ´Ï´Ù (¼Õ°ú ¼ÒÄÏÀÇ °Å¸®)
+        // args.interactorObjectëŠ” í™”ì‚´ì„ ì¡ê³  ìˆëŠ” ì†(ì»¨íŠ¸ë¡¤ëŸ¬)
+        // ë‹¹ê¹€ ê±°ë¦¬ë¥¼ ê³„ì‚°í•©ë‹ˆë‹¤ (ì†ê³¼ ì†Œì¼“ ì‚¬ì´ì˜ ê±°ë¦¬)
         float pullDistance = Vector3.Distance(args.interactorObject.transform.position, nockSocket.transform.position);
         float clampedPullDistance = Mathf.Clamp(pullDistance, 0f, maxPullDistance);
         float finalForce = clampedPullDistance * shootingForceMultiplier;
 
         if (enableDebugLogs)
-            Debug.Log($"´ç±è °Å¸®: {pullDistance}, Å¬·¥ÇÁµÈ °Å¸®: {clampedPullDistance}, ÃÖÁ¾ Èû: {finalForce}");
+            Debug.Log($"ë‹¹ê¹€ ê±°ë¦¬: {pullDistance}, í´ë¨í”„ëœ ê±°ë¦¬: {clampedPullDistance}, ìµœì¢… í˜: {finalForce}");
 
-        // È­»ìÀ» ¼ÒÄÏ¿¡¼­ ºĞ¸®ÇÏ°í ¹°¸®¸¦ È°¼ºÈ­
+        // í™”ì‚´ì„ ì†Œì¼“ì—ì„œ ë¶„ë¦¬í•˜ê³  ë¬¼ë¦¬ í™œì„±í™”
         Rigidbody arrowRigidbody = nockedArrow.transform.GetComponent<Rigidbody>();
         if (arrowRigidbody != null)
         {
             arrowRigidbody.isKinematic = false;
             arrowRigidbody.useGravity = true;
 
-            // È­»ìÀÇ Àü¹æ ¹æÇâÀ¸·Î ÈûÀ» °¡ÇÕ´Ï´Ù.
+            // í™”ì‚´ì— ì „ë°© ë°©í–¥ìœ¼ë¡œ í˜ì„ ê°€í•©ë‹ˆë‹¤.
             Vector3 shootDirection = nockedArrow.transform.forward;
             arrowRigidbody.AddForce(shootDirection * finalForce, ForceMode.Impulse);
 
             if (enableDebugLogs)
-                Debug.Log($"È­»ì¿¡ Èû Àû¿ë: {shootDirection * finalForce}");
+                Debug.Log($"í™”ì‚´ì— ê°€í•œ í˜: {shootDirection * finalForce}");
         }
         else
         {
-            Debug.LogError("È­»ì¿¡ Rigidbody°¡ ¾ø½À´Ï´Ù!");
+            Debug.LogError("í™”ì‚´ì— Rigidbodyê°€ ì—†ìŠµë‹ˆë‹¤!");
         }
     }
 
-    // ½ÃÀ§(Line Renderer)¸¦ ±âº» À§Ä¡·Î µÇµ¹¸²
+    /// <summary>
+    /// í™”ì‚´ ë°œì‚¬ (ê°œì„ ëœ ë²„ì „)
+    /// </summary>
+    /// <param name="pullStrength">ë‹¹ê¹€ ê°•ë„ (0-1)</param>
+    private void FireArrow(float pullStrength)
+    {
+        if (nockedArrow == null) return;
+
+        // ArrowLauncher ì»´í¬ë„ŒíŠ¸ ì°¾ê¸°
+        ArrowLauncher launcher = nockedArrow.transform.GetComponent<ArrowLauncher>();
+        if (launcher != null)
+        {
+            // ArrowLauncherì˜ Release í•¨ìˆ˜ í˜¸ì¶œ
+            // ì´ í•¨ìˆ˜ëŠ” ë‚´ë¶€ì ìœ¼ë¡œ í™”ì‚´ ë°œì‚¬ ë¡œì§ì„ ì²˜ë¦¬í•©ë‹ˆë‹¤
+            launcher.Initialize(stringPullInteractable);
+        }
+        else
+        {
+            // ê¸°ì¡´ ë°©ì‹ìœ¼ë¡œ ë°œì‚¬ (í˜¸í™˜ì„± ìœ ì§€)
+            Rigidbody arrowRigidbody = nockedArrow.transform.GetComponent<Rigidbody>();
+            if (arrowRigidbody != null)
+            {
+                arrowRigidbody.isKinematic = false;
+                arrowRigidbody.useGravity = true;
+
+                Vector3 shootDirection = nockedArrow.transform.forward;
+                float finalForce = pullStrength * shootingForceMultiplier;
+                arrowRigidbody.AddForce(shootDirection * finalForce, ForceMode.Impulse);
+            }
+        }
+
+        // í™”ì‚´ ìƒíƒœ ë¦¬ì…‹
+        nockedArrow = null;
+        isArrowNocked = false;
+    }
+
+    // ì‹œìœ„(Line Renderer)ë¥¼ ê¸°ë³¸ ìœ„ì¹˜ë¡œ ë˜ëŒë¦¼
     private void ResetBowString()
     {
         if (bowStringRenderer != null)
@@ -150,12 +438,12 @@ public class BowController : MonoBehaviour
         }
     }
 
-    // ½ÃÀ§¸¦ ¼ÕÀÇ À§Ä¡·Î ¾÷µ¥ÀÌÆ®
+    // ì‹œìœ„ë¥¼ ë‹¹ê¸´ ì† ìœ„ì¹˜ë¡œ ì—…ë°ì´íŠ¸
     private void UpdateBowString(Vector3 pullPosition)
     {
         if (bowStringRenderer != null)
         {
-            // ´ç±è °Å¸®¸¦ Á¦ÇÑ
+            // ë‹¹ê¹€ ê±°ë¦¬ë¥¼ ê³„ì‚°
             Vector3 direction = (pullPosition - nockSocket.transform.position).normalized;
             float distance = Vector3.Distance(nockSocket.transform.position, pullPosition);
             float clampedDistance = Mathf.Clamp(distance, 0f, maxPullDistance);
@@ -165,26 +453,32 @@ public class BowController : MonoBehaviour
             bowStringRenderer.SetPosition(0, stringStartPoint.position);
             bowStringRenderer.SetPosition(1, clampedPullPosition);
             bowStringRenderer.SetPosition(2, stringEndPoint.position);
+
+            // ë‹¹ê¹€ ê°•ë„ ì´ë²¤íŠ¸ í˜¸ì¶œ
+            float pullStrength = clampedDistance / maxPullDistance;
+            OnPullStrengthChanged?.Invoke(pullStrength);
         }
     }
 
-    // ¼öµ¿À¸·Î È­»ì »ı¼º (Å×½ºÆ®¿ë)
+    // ì¸ìŠ¤í™í„°ì—ì„œ í™”ì‚´ ìƒì„± (í…ŒìŠ¤íŠ¸ìš©)
     [ContextMenu("Create Arrow")]
     public void CreateArrow()
     {
         if (arrowPrefab != null && arrowSpawnPoint != null)
         {
             GameObject newArrow = Instantiate(arrowPrefab, arrowSpawnPoint.position, arrowSpawnPoint.rotation);
-            Debug.Log("È­»ìÀÌ ¼öµ¿À¸·Î »ı¼ºµÇ¾ú½À´Ï´Ù.");
+            SetupArrowComponents(newArrow);
+            Debug.Log("í™”ì‚´ì´ ìˆ˜ë™ìœ¼ë¡œ ìƒì„±ë˜ì—ˆìŠµë‹ˆë‹¤.");
         }
         else
         {
-            Debug.LogError("È­»ì ÇÁ¸®ÆÕ ¶Ç´Â »ı¼º À§Ä¡°¡ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù!");
+            Debug.LogError("í™”ì‚´ í”„ë¦¬íŒ¹ì´ë‚˜ ìƒì„± ìœ„ì¹˜ê°€ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤!");
         }
     }
 
-    // ÇöÀç »óÅÂ Á¤º¸ ¹İÈ¯
+    // ìƒíƒœ ì •ë³´ ë°˜í™˜
     public bool IsArrowNocked() => isArrowNocked;
+    
     public float GetPullDistance()
     {
         if (isArrowNocked && nockedArrow != null)
@@ -197,285 +491,8 @@ public class BowController : MonoBehaviour
         }
         return 0f;
     }
+
+    public int GetCurrentArrowCount() => currentArrowCount;
+    
+    public float GetMaxPullDistance() => maxPullDistance;
 }
-//using System.Collections;
-//using System.Collections.Generic;
-//using UnityEngine;
-//using UnityEngine.XR.Interaction.Toolkit;
-
-///// <summary>
-///// VR È° ÄÁÆ®·Ñ·¯ - XR Interaction Toolkit°ú ¿¬µ¿ v
-///// È° ½ÃÀ§ ´ç±â±â, È­»ì ¹ß»ç, ¹°¸® ½Ã¹Ä·¹ÀÌ¼ÇÀ» ´ã´ç
-///// </summary>
-//public class BowController : MonoBehaviour
-//{
-//    [Header("Bow References")]
-//    [Tooltip("È° ½ÃÀ§ÀÇ °íÁ¤Á¡ (È° ¸öÃ¼¿¡ ¿¬°áµÈ ºÎºĞ)")]
-//    public Transform stringAttachPoint;
-
-//    [Tooltip("È­»ìÀÌ ½ÃÀÛµÇ´Â À§Ä¡")]
-//    public Transform arrowStartPoint;
-
-//    [Tooltip("È­»ì ÇÁ¸®ÆÕ")]
-//    public GameObject arrowPrefab;
-
-//    [Header("Bow Physics")]
-//    [Tooltip("È° ½ÃÀ§ÀÇ ÃÖ´ë ´ç±è °Å¸®")]
-//    public float maxPullDistance = 0.5f;
-
-//    [Tooltip("È° ½ÃÀ§ÀÇ Åº¼º °è¼ö (³ôÀ»¼ö·Ï ´õ °­ÇÑ ¹ß»ç)")]
-//    public float bowTension = 1000f;
-
-//    [Tooltip("È­»ì ¹ß»ç ¼Óµµ ¹è¼ö")]
-//    public float arrowSpeedMultiplier = 1.5f;
-
-//    [Header("Visual Feedback")]
-//    [Tooltip("È° ½ÃÀ§¸¦ ½Ã°¢ÀûÀ¸·Î Ç¥ÇöÇÏ´Â ¶óÀÎ ·»´õ·¯")]
-//    public LineRenderer bowString;
-
-//    [Tooltip("È° ½ÃÀ§ÀÇ »ö»ó")]
-//    public Color stringColor = Color.white;
-
-//    [Header("Audio")]
-//    [Tooltip("È° ½ÃÀ§ ´ç±â´Â ¼Ò¸®")]
-//    public AudioClip pullSound;
-
-//    [Tooltip("È­»ì ¹ß»ç ¼Ò¸®")]
-//    public AudioClip releaseSound;
-
-//    [Tooltip("È­»ì ÀåÀü ¼Ò¸®")]
-//    public AudioClip nockSound;
-
-//    // ³»ºÎ º¯¼öµé
-//    private GameObject _currentArrow;
-//    private bool _isStringPulled = false;
-//    private Transform _pullingHand;
-//    private float _currentPullDistance = 0f;
-//    private Vector3 _originalStringPosition;
-//    private AudioSource _audioSource;
-//    private XRGrabInteractable _bowGrabInteractable;
-
-//    // ÀÌº¥Æ®
-//    public System.Action<float> OnPullStrengthChanged;
-//    public System.Action OnArrowReleased;
-
-//    void Start()
-//    {
-//        InitializeBow();
-//    }
-
-//    void Update()
-//    {
-//        UpdateBowString();
-//        UpdatePullPhysics();
-//    }
-
-//    /// <summary>
-//    /// È° ÃÊ±âÈ­
-//    /// </summary>
-//    void InitializeBow()
-//    {
-//        // AudioSource ¼³Á¤
-//        _audioSource = GetComponent<AudioSource>();
-//        if (_audioSource == null)
-//        {
-//            _audioSource = gameObject.AddComponent<AudioSource>();
-//        }
-
-//        // XR Grab Interactable ¼³Á¤
-//        _bowGrabInteractable = GetComponent<XRGrabInteractable>();
-//        if (_bowGrabInteractable == null)
-//        {
-//            _bowGrabInteractable = gameObject.AddComponent<XRGrabInteractable>();
-//        }
-
-//        // È° ½ÃÀ§ ¶óÀÎ ·»´õ·¯ ¼³Á¤
-//        SetupBowString();
-
-//        // ÃÊ±â È° ½ÃÀ§ À§Ä¡ ÀúÀå
-//        _originalStringPosition = stringAttachPoint.position;
-//    }
-
-//    /// <summary>
-//    /// È° ½ÃÀ§ ¶óÀÎ ·»´õ·¯ ¼³Á¤
-//    /// </summary>
-//    void SetupBowString()
-//    {
-//        if (bowString == null)
-//        {
-//            bowString = gameObject.AddComponent<LineRenderer>();
-//        }
-
-//        bowString.material = new Material(Shader.Find("Sprites/Default"));
-//        //bowString.color = stringColor;
-//        bowString.startWidth = 0.01f;
-//        bowString.endWidth = 0.01f;
-//        bowString.positionCount = 2;
-//        bowString.useWorldSpace = true;
-//    }
-
-//    /// <summary>
-//    /// È° ½ÃÀ§ ½Ã°¢Àû ¾÷µ¥ÀÌÆ®
-//    /// </summary>
-//    void UpdateBowString()
-//    {
-//        if (bowString != null)
-//        {
-//            Vector3 startPos = _originalStringPosition;
-//            Vector3 endPos = _isStringPulled ? _pullingHand.position : _originalStringPosition;
-
-//            bowString.SetPosition(0, startPos);
-//            bowString.SetPosition(1, endPos);
-//        }
-//    }
-
-//    /// <summary>
-//    /// È° ½ÃÀ§ ´ç±â±â ¹°¸® ¾÷µ¥ÀÌÆ®
-//    /// </summary>
-//    void UpdatePullPhysics()
-//    {
-//        if (_isStringPulled && _pullingHand != null)
-//        {
-//            // ÇöÀç ´ç±è °Å¸® °è»ê
-//            _currentPullDistance = Vector3.Distance(_originalStringPosition, _pullingHand.position);
-//            _currentPullDistance = Mathf.Clamp(_currentPullDistance, 0f, maxPullDistance);
-
-//            // ´ç±è °­µµ ÀÌº¥Æ® È£Ãâ (0-1 ¹üÀ§)
-//            float pullStrength = _currentPullDistance / maxPullDistance;
-//            OnPullStrengthChanged?.Invoke(pullStrength);
-
-//            // È° ½ÃÀ§ À§Ä¡ ¾÷µ¥ÀÌÆ®
-//            stringAttachPoint.position = Vector3.Lerp(_originalStringPosition, _pullingHand.position, 0.5f);
-//        }
-//    }
-
-//    /// <summary>
-//    /// È° ½ÃÀ§ ´ç±â±â ½ÃÀÛ
-//    /// </summary>
-//    /// <param name="hand">´ç±â´Â ¼ÕÀÇ Transform</param>
-//    public void StartPull(Transform hand)
-//    {
-//        if (!_isStringPulled)
-//        {
-//            _isStringPulled = true;
-//            _pullingHand = hand;
-//            _currentPullDistance = 0f;
-
-//            // È­»ì »ı¼º
-//            CreateArrow();
-
-//            // ´ç±â´Â ¼Ò¸® Àç»ı
-//            if (pullSound != null)
-//            {
-//                _audioSource.PlayOneShot(pullSound);
-//            }
-//        }
-//    }
-
-//    /// <summary>
-//    /// È­»ì »ı¼º
-//    /// </summary>
-//    void CreateArrow()
-//    {
-//        if (arrowPrefab != null && _currentArrow == null)
-//        {
-//            _currentArrow = Instantiate(arrowPrefab, arrowStartPoint.position, arrowStartPoint.rotation, arrowStartPoint);
-
-//            // È­»ìÀÇ Rigidbody¸¦ ºñÈ°¼ºÈ­ (¹ß»ç Àü±îÁö)
-//            Rigidbody arrowRb = _currentArrow.GetComponent<Rigidbody>();
-//            if (arrowRb != null)
-//            {
-//                arrowRb.isKinematic = true;
-//            }
-
-//            // ÀåÀü ¼Ò¸® Àç»ı
-//            if (nockSound != null)
-//            {
-//                _audioSource.PlayOneShot(nockSound);
-//            }
-//        }
-//    }
-
-//    /// <summary>
-//    /// È° ½ÃÀ§ ³õ±â (È­»ì ¹ß»ç)
-//    /// </summary>
-//    public void ReleasePull()
-//    {
-//        if (_isStringPulled && _currentArrow != null)
-//        {
-//            // È­»ì ¹ß»ç
-//            FireArrow();
-
-//            // È° ½ÃÀ§ ¿øÀ§Ä¡
-//            ResetBowString();
-
-//            // ¹ß»ç ¼Ò¸® Àç»ı
-//            if (releaseSound != null)
-//            {
-//                _audioSource.PlayOneShot(releaseSound);
-//            }
-
-//            // ÀÌº¥Æ® È£Ãâ
-//            OnArrowReleased?.Invoke();
-//        }
-
-//        _isStringPulled = false;
-//        _pullingHand = null;
-//        _currentArrow = null;
-//    }
-
-//    /// <summary>
-//    /// È­»ì ¹ß»ç
-//    /// </summary>
-//    void FireArrow()
-//    {
-//        // È­»ìÀ» ºÎ¸ğ¿¡¼­ ºĞ¸®
-//        _currentArrow.transform.parent = null;
-
-//        // Rigidbody È°¼ºÈ­
-//        Rigidbody arrowRb = _currentArrow.GetComponent<Rigidbody>();
-//        if (arrowRb != null)
-//        {
-//            arrowRb.isKinematic = false;
-
-//            // ¹ß»ç ¹æÇâ °è»ê (È° ½ÃÀ§ ¹æÇâ)
-//            Vector3 fireDirection = (arrowStartPoint.position - stringAttachPoint.position).normalized;
-
-//            // ¹ß»ç Èû °è»ê (´ç±è °Å¸®¿¡ ºñ·Ê)
-//            float pullStrength = _currentPullDistance / maxPullDistance;
-//            float fireForce = bowTension * pullStrength * arrowSpeedMultiplier;
-
-//            // È­»ì¿¡ Èû Àû¿ë
-//            arrowRb.AddForce(fireDirection * fireForce, ForceMode.Impulse);
-
-//            // È­»ì È¸Àü Ãß°¡ (´õ Çö½ÇÀûÀÎ ±ËÀû)
-//            arrowRb.AddTorque(arrowRb.transform.right * 10f, ForceMode.Impulse);
-//        }
-//    }
-
-//    /// <summary>
-//    /// È° ½ÃÀ§ ¿øÀ§Ä¡
-//    /// </summary>
-//    void ResetBowString()
-//    {
-//        stringAttachPoint.position = _originalStringPosition;
-//        _currentPullDistance = 0f;
-//        OnPullStrengthChanged?.Invoke(0f);
-//    }
-
-//    /// <summary>
-//    /// ÇöÀç ´ç±è °­µµ ¹İÈ¯ (0-1)
-//    /// </summary>
-//    public float GetPullStrength()
-//    {
-//        return _currentPullDistance / maxPullDistance;
-//    }
-
-//    /// <summary>
-//    /// È°ÀÌ ÀâÇôÀÖ´ÂÁö È®ÀÎ
-//    /// </summary>
-//    public bool IsGrabbed()
-//    {
-//        return _bowGrabInteractable != null && _bowGrabInteractable.isSelected;
-//    }
-//}
