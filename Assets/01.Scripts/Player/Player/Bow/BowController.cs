@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using System.Collections;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
 /// VR 활쏘기 컨트롤러 - XR Interaction Toolkit 기반

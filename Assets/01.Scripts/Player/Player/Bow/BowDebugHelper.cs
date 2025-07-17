@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 /// <summary>
 /// 활쏘기 시스템 디버그 및 문제 해결을 위한 헬퍼 스크립트
@@ -147,7 +148,7 @@ public class BowDebugHelper : MonoBehaviour
         if (nockSocket != null)
         {
             Debug.Log($"NockSocket: 활성화됨");
-            Debug.Log($"선택됨: {nockSocket.isSelected}");
+            //Debug.Log($"선택됨: {nockSocket.isSelected}");
             Debug.Log($"상호작용 가능: {nockSocket.interactionManager != null}");
         }
         else
