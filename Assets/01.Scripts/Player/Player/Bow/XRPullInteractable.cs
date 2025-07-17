@@ -92,10 +92,11 @@ namespace UnityEngine.XR.Interaction.Toolkit.Interactables
 
         private void HandleHaptics()
         {
-            //if (_PullingInteractor != null && _PullingInteractor is XRBaseInputInteractor controllerInteractor)
-            //{
-            //    controllerInteractor.SendHapticImpulse(pullAmount, 0.1f);
-            //}
+            if (_PullingInteractor != null && _PullingInteractor is XRBaseControllerInteractor controllerInteractor)
+            {
+                
+                controllerInteractor.SendHapticImpulse(pullAmount, 0.1f);
+            }
         }
     }
 }

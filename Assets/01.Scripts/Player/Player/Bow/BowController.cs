@@ -10,55 +10,61 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 /// </summary>
 public class BowController : MonoBehaviour
 {
+    [Tooltip("활의 위치")]
+    [SerializeField] private Transform _bowPosition;
     [Header("String & Nocking")]
     [Tooltip("활 시위를 표시할 라인 렌더러")]
     [SerializeField] private LineRenderer bowStringRenderer;
-    
+
     [Tooltip("시위 시작점")]
     [SerializeField] private Transform stringStartPoint;
-    
+
     [Tooltip("시위 끝점")]
     [SerializeField] private Transform stringEndPoint;
-    
+
+    [Tooltip("시위 고정점")]
+    [SerializeField] private Transform[] _bowStringPoint;
+    [SerializeField] private Transform _ColliderStringPoint;
+
     [Tooltip("화살을 끼우는 소켓")]
     [SerializeField] private XRSocketInteractor nockSocket;
 
     [Header("Arrow System")]
     [Tooltip("화살 프리팹")]
     [SerializeField] private GameObject arrowPrefab;
-    
+
     [Tooltip("화살 생성 위치")]
     [SerializeField] private Transform arrowSpawnPoint;
-    
+
     [Tooltip("자동 화살 생성 간격 (초)")]
     [SerializeField] private float arrowSpawnInterval = 2f;
-    
+
     [Tooltip("최대 보유 화살 수")]
     [SerializeField] private int maxArrows = 10;
 
     [Header("Shooting")]
     [Tooltip("발사 힘 배수")]
     [SerializeField] private float shootingForceMultiplier = 25f;
-    
+
     [Tooltip("최대 당김 거리")]
     [SerializeField] private float maxPullDistance = 0.6f;
-    
+
     [Tooltip("시위 장력 배수")]
     [SerializeField] private float stringTension = 1.2f;
 
     [Header("Visual & Audio")]
     [Tooltip("시위 당김 사운드")]
     [SerializeField] private AudioClip pullSound;
-    
+
     [Tooltip("화살 발사 사운드")]
     [SerializeField] private AudioClip releaseSound;
-    
+
     [Tooltip("화살 장착 사운드")]
     [SerializeField] private AudioClip nockSound;
-    
+
     [Tooltip("시위 색상")]
     [SerializeField] private Color stringColor = Color.white;
-    
+
     [Tooltip("시위 두께")]
     [SerializeField] private float stringWidth = 0.005f;
 
@@ -69,14 +75,21 @@ public class BowController : MonoBehaviour
     // 내부 변수
     private IXRSelectInteractable nockedArrow = null;
     private bool isArrowNocked = false;
-    private bool isStringPulled = false;
-    private Transform pullingHand = null;
-    private float currentPullDistance = 0f;
+    //private bool isStringPulled = false;
+    //private Transform pullingHand = null;
+    //private float currentPullDistance = 0f;
     private Vector3 originalStringPosition;
     private AudioSource audioSource;
     private int currentArrowCount = 0;
     private Coroutine arrowSpawnCoroutine;
     private XRPullInteractable stringPullInteractable;
+    [Header("References")]
+    public XRBaseInteractor leftController;
+    public XRBaseInteractor rightController;
+    public Transform stringTouchArea;
+    public float stringTouchRadius = 0.1f;
+    private bool isLeftHolding = false;
+    private bool wasRightTouching = false;
 
     // 이벤트
     public System.Action<float> OnPullStrengthChanged;
@@ -96,7 +109,7 @@ public class BowController : MonoBehaviour
             nockSocket.selectEntered.RemoveListener(OnArrowNocked);
             nockSocket.selectExited.RemoveListener(OnArrowRemoved);
         }
-        
+
         if (stringPullInteractable != null)
         {
             stringPullInteractable.PullActionReleased -= OnStringReleased;
@@ -150,13 +163,13 @@ public class BowController : MonoBehaviour
         bowStringRenderer.endColor = stringColor;
         bowStringRenderer.startWidth = stringWidth;
         bowStringRenderer.endWidth = stringWidth;
-        bowStringRenderer.positionCount = 2;
-        bowStringRenderer.useWorldSpace = true;
+        bowStringRenderer.positionCount = 3;
+        bowStringRenderer.useWorldSpace = false;
 
         // 시위 기본 위치 설정
         if (stringStartPoint != null && stringEndPoint != null)
         {
-            originalStringPosition = (stringStartPoint.position + stringEndPoint.position) * 0.5f;
+            //originalStringPosition = (stringStartPoint.localPosition + stringEndPoint.localPosition) * 0.5f;
             ResetBowString();
         }
     }
@@ -232,13 +245,13 @@ public class BowController : MonoBehaviour
         if (launcher != null)
         {
             launcher.Initialize(stringPullInteractable);
-            
+
             // 이벤트 연결
             launcher.OnArrowLaunched += () => {
                 currentArrowCount--;
                 OnArrowCountChanged?.Invoke(currentArrowCount);
                 OnArrowReleased?.Invoke();
-                
+
                 if (enableDebugLogs)
                     Debug.Log($"화살이 발사되었습니다. 남은 화살 수: {currentArrowCount}");
             };
@@ -277,10 +290,10 @@ public class BowController : MonoBehaviour
         {
             // 화살 발사
             FireArrow(value);
-            
+
             // 시위 리셋
             ResetBowString();
-            
+
             // 발사 사운드 재생
             if (releaseSound != null && audioSource != null)
             {
@@ -295,33 +308,46 @@ public class BowController : MonoBehaviour
     // Update 함수
     void Update()
     {
-        if (isArrowNocked && nockedArrow != null)
-        {
-            // 디버그 로그 추가
-            if (enableDebugLogs)
-                Debug.Log("Update: 화살이 장착되어 있습니다. 손 위치를 찾습니다.");
+        gameObject.transform.position = _bowPosition.position;
+        // 왼손이 활을 잡고 있는지 확인
+        isLeftHolding = leftController.hasSelection;
 
-            // 화살이 장착되어 있다면, 화살을 잡고 있는 손의 위치를 찾아서 시위를 업데이트합니다.
+        // 오른손이 시위 근처에 있는지 확인
+        bool isRightTouching = false;
+        if (rightController != null && stringTouchArea != null)
+        {
+            float dist = Vector3.Distance(rightController.transform.position, stringTouchArea.position);
+            isRightTouching = dist <= stringTouchRadius;
+        }
+
+        // 조건 충족 시 화살 생성
+        if (isLeftHolding && isRightTouching && !wasRightTouching && currentArrowCount < maxArrows)
+        {
+            SpawnArrow();
+        }
+
+        // 시위 당김 시각적 업데이트
+        if (isLeftHolding && isRightTouching)
+        {
+            // 오른손이 시위를 당기고 있을 때 시위 위치 업데이트
+            UpdateBowString(rightController.transform.position);
+        }
+        else if (isArrowNocked && nockedArrow != null)
+        {
+            // 화살이 장착되어 있을 때 화살을 잡고 있는 손의 위치로 시위 업데이트
             IXRSelectInteractor hand = nockedArrow.firstInteractorSelecting;
             if (hand != null)
             {
-                // 손 위치로 시위를 업데이트
                 UpdateBowString(hand.transform.position);
-
-                if (enableDebugLogs)
-                    Debug.Log($"손 위치: {hand.transform.position}, 시위 업데이트됨");
-            }
-            else
-            {
-                if (enableDebugLogs)
-                    Debug.LogWarning("손을 찾을 수 없습니다!");
             }
         }
         else
         {
-            // 화살이 장착되지 않았다면 기본 위치로 되돌립니다.
+            // 시위를 당기지 않을 때 기본 위치로 리셋
             ResetBowString();
         }
+
+        wasRightTouching = isRightTouching;
     }
 
     // 화살을 소켓에 끼우고 있을 때 호출되는 함수
@@ -391,7 +417,15 @@ public class BowController : MonoBehaviour
             Debug.LogError("화살에 Rigidbody가 없습니다!");
         }
     }
-
+    void SpawnArrow()
+    {
+        if (arrowPrefab != null && arrowSpawnPoint != null)
+        {
+            Instantiate(arrowPrefab, arrowSpawnPoint.position, arrowSpawnPoint.rotation);
+            currentArrowCount++;
+            Debug.Log("화살 생성!");
+        }
+    }
     /// <summary>
     /// 화살 발사 (개선된 버전)
     /// </summary>
@@ -433,9 +467,17 @@ public class BowController : MonoBehaviour
     {
         if (bowStringRenderer != null)
         {
-            bowStringRenderer.positionCount = 2;
-            bowStringRenderer.SetPosition(0, stringStartPoint.position);
-            bowStringRenderer.SetPosition(1, stringEndPoint.position);
+            bowStringRenderer.positionCount = 3;
+            //bowStringRenderer.SetPosition(0, stringStartPoint.position);
+            //bowStringRenderer.SetPosition(2, stringEndPoint.position);
+
+            //시위를 활에 묶어놓는 pivot
+            bowStringRenderer.SetPosition(0, _bowStringPoint[0].position);
+            bowStringRenderer.SetPosition(2, _bowStringPoint[2].position);
+
+            //활을 당겼을 때 라인을 다시 복귀하게 하는 pivot
+            _ColliderStringPoint.transform.position = _bowStringPoint[1].position;
+            bowStringRenderer.SetPosition(1, _ColliderStringPoint.position);
         }
     }
 
@@ -451,9 +493,21 @@ public class BowController : MonoBehaviour
             Vector3 clampedPullPosition = nockSocket.transform.position + direction * clampedDistance;
 
             bowStringRenderer.positionCount = 3;
-            bowStringRenderer.SetPosition(0, stringStartPoint.position);
-            bowStringRenderer.SetPosition(1, clampedPullPosition);
-            bowStringRenderer.SetPosition(2, stringEndPoint.position);
+
+            // _bowStringPoint 배열 사용 (ResetBowString과 일관성 유지)
+            if (_bowStringPoint != null && _bowStringPoint.Length >= 3)
+            {
+                bowStringRenderer.SetPosition(0, _bowStringPoint[0].position);
+                bowStringRenderer.SetPosition(1, clampedPullPosition);
+                bowStringRenderer.SetPosition(2, _bowStringPoint[2].position);
+            }
+            else
+            {
+                // fallback: stringStartPoint와 stringEndPoint 사용
+                bowStringRenderer.SetPosition(0, stringStartPoint.position);
+                bowStringRenderer.SetPosition(1, clampedPullPosition);
+                bowStringRenderer.SetPosition(2, stringEndPoint.position);
+            }
 
             // 당김 강도 이벤트 호출
             float pullStrength = clampedDistance / maxPullDistance;
@@ -479,7 +533,7 @@ public class BowController : MonoBehaviour
 
     // 상태 정보 반환
     public bool IsArrowNocked() => isArrowNocked;
-    
+
     public float GetPullDistance()
     {
         if (isArrowNocked && nockedArrow != null)
@@ -494,6 +548,6 @@ public class BowController : MonoBehaviour
     }
 
     public int GetCurrentArrowCount() => currentArrowCount;
-    
+
     public float GetMaxPullDistance() => maxPullDistance;
 }
