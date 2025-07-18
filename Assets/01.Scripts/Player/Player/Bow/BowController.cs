@@ -191,7 +191,7 @@ public class BowController : MonoBehaviour
             grabInteractable.selectMode = InteractableSelectMode.Multiple;
             
             // 최대 선택 가능한 인터랙터 수 설정
-            grabInteractable.maxInteractors = 2;
+            //grabInteractable.maxInteractors = 2;
             
             if (enableDebugLogs)
                 Debug.Log("양손 동시 상호작용이 활성화되었습니다.");
@@ -200,7 +200,7 @@ public class BowController : MonoBehaviour
         {
             // 단일 선택 모드
             grabInteractable.selectMode = InteractableSelectMode.Single;
-            grabInteractable.maxInteractors = 1;
+            //grabInteractable.maxInteractors = 1;
         }
 
         // 상호작용 레이어 설정 (필요한 경우)
@@ -977,7 +977,7 @@ public class BowController : MonoBehaviour
         if (leftController != null)
         {
             Debug.Log($"왼손 hasSelection: {leftController.hasSelection}");
-            Debug.Log($"왼손 선택된 오브젝트: {(leftController.firstInteractableSelected != null ? leftController.firstInteractableSelected.name : "없음")}");
+            //Debug.Log($"왼손 선택된 오브젝트: {(leftController.firstInteractableSelected != null ? leftController.firstInteractableSelected.name : "없음")}");
             Debug.Log($"왼손 위치: {leftController.transform.position}");
         }
         
