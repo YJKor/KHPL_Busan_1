@@ -144,9 +144,6 @@ public class BowController : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
         }
 
-        // 라인렌더러 찾기 (자식 오브젝트 "String"에서)
-        FindBowStringRenderer();
-
         // 시위 초기화
         SetupBowString();
 
@@ -168,94 +165,28 @@ public class BowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 자식 오브젝트에서 라인렌더러 찾기
-    /// </summary>
-    private void FindBowStringRenderer()
-    {
-        // 먼저 현재 오브젝트에서 라인렌더러 찾기
-        if (bowStringRenderer == null)
-        {
-            bowStringRenderer = GetComponent<LineRenderer>();
-        }
-
-        // 현재 오브젝트에 없으면 자식 오브젝트에서 찾기
-        if (bowStringRenderer == null)
-        {
-            // "String"이라는 이름의 자식 오브젝트에서 찾기
-            Transform stringChild = transform.Find("String");
-            if (stringChild != null)
-            {
-                bowStringRenderer = stringChild.GetComponent<LineRenderer>();
-                if (enableDebugLogs)
-                    Debug.Log($"자식 오브젝트 'String'에서 라인렌더러를 찾았습니다: {bowStringRenderer}");
-            }
-        }
-
-        // "String"이라는 이름이 아니면 모든 자식에서 찾기
-        if (bowStringRenderer == null)
-        {
-            LineRenderer[] allLineRenderers = GetComponentsInChildren<LineRenderer>();
-            if (allLineRenderers.Length > 0)
-            {
-                bowStringRenderer = allLineRenderers[0];
-                if (enableDebugLogs)
-                    Debug.Log($"자식 오브젝트에서 라인렌더러를 찾았습니다: {bowStringRenderer.name}");
-            }
-        }
-
-        // 여전히 없으면 새로 생성
-        if (bowStringRenderer == null)
-        {
-            // "String" 자식 오브젝트 생성
-            GameObject stringObject = new GameObject("String");
-            stringObject.transform.SetParent(transform);
-            stringObject.transform.localPosition = Vector3.zero;
-            
-            bowStringRenderer = stringObject.AddComponent<LineRenderer>();
-            if (enableDebugLogs)
-                Debug.Log("새로운 String 오브젝트와 라인렌더러를 생성했습니다.");
-        }
-    }
-
-    /// <summary>
     /// 활 시위 설정
     /// </summary>
     private void SetupBowString()
     {
-        // 라인렌더러가 없으면 다시 찾기
         if (bowStringRenderer == null)
         {
-            FindBowStringRenderer();
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
         }
 
-        if (bowStringRenderer == null)
-        {
-            Debug.LogError("라인렌더러를 찾을 수 없습니다!");
-            return;
-        }
-
-        // 라인렌더러 기본 설정
         bowStringRenderer.material = new Material(Shader.Find("Sprites/Default"));
         bowStringRenderer.startColor = stringColor;
         bowStringRenderer.endColor = stringColor;
         bowStringRenderer.startWidth = stringWidth;
         bowStringRenderer.endWidth = stringWidth;
         bowStringRenderer.positionCount = 3;
-        bowStringRenderer.useWorldSpace = true; // 월드 스페이스 사용
+        bowStringRenderer.useWorldSpace = false;
 
         // 시위 기본 위치 설정
         if (stringStartPoint != null && stringEndPoint != null)
         {
             ResetBowString();
         }
-        else
-        {
-            // stringStartPoint와 stringEndPoint가 없으면 기본 위치 설정
-            SetupDefaultStringPositions();
-        }
-
-        if (enableDebugLogs)
-            Debug.Log($"라인렌더러 설정 완료: {bowStringRenderer.name}");
     }
 
     /// <summary>
@@ -399,7 +330,7 @@ public class BowController : MonoBehaviour
         // 라인렌더러가 없으면 찾기
         if (bowStringRenderer == null)
         {
-            FindBowStringRenderer();
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
         }
 
         if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
@@ -439,7 +370,7 @@ public class BowController : MonoBehaviour
         // 라인렌더러가 없으면 찾기
         if (bowStringRenderer == null)
         {
-            FindBowStringRenderer();
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
         }
 
         if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
@@ -803,7 +734,7 @@ public class BowController : MonoBehaviour
     {
         if (bowStringRenderer == null)
         {
-            FindBowStringRenderer();
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
             if (bowStringRenderer == null) return;
         }
 
@@ -849,7 +780,7 @@ public class BowController : MonoBehaviour
     {
         if (bowStringRenderer == null)
         {
-            FindBowStringRenderer();
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
             if (bowStringRenderer == null) return;
         }
 
@@ -999,7 +930,7 @@ public class BowController : MonoBehaviour
         Debug.Log($"현재 할당된 라인렌더러: {(bowStringRenderer != null ? bowStringRenderer.name : "없음")}");
         
         // 라인렌더러 다시 찾기
-        FindBowStringRenderer();
+        bowStringRenderer = gameObject.AddComponent<LineRenderer>();
         Debug.Log($"다시 찾은 라인렌더러: {(bowStringRenderer != null ? bowStringRenderer.name : "없음")}");
         
         // 위치 정보
@@ -1031,7 +962,7 @@ public class BowController : MonoBehaviour
         // 라인렌더러가 없으면 찾기
         if (bowStringRenderer == null)
         {
-            FindBowStringRenderer();
+            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
         }
 
         if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
