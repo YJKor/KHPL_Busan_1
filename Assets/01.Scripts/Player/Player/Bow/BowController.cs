@@ -144,6 +144,9 @@ public class BowController : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
         }
 
+        // 라인렌더러 찾기 (자식 오브젝트 "String"에서)
+        FindBowStringRenderer();
+
         // 시위 초기화
         SetupBowString();
 
@@ -165,29 +168,119 @@ public class BowController : MonoBehaviour
     }
 
     /// <summary>
+    /// 자식 오브젝트에서 라인렌더러 찾기
+    /// </summary>
+    private void FindBowStringRenderer()
+    {
+        // 먼저 현재 오브젝트에서 라인렌더러 찾기
+        if (bowStringRenderer == null)
+        {
+            bowStringRenderer = GetComponent<LineRenderer>();
+        }
+
+        // 현재 오브젝트에 없으면 자식 오브젝트에서 찾기
+        if (bowStringRenderer == null)
+        {
+            // "String"이라는 이름의 자식 오브젝트에서 찾기
+            Transform stringChild = transform.Find("String");
+            if (stringChild != null)
+            {
+                bowStringRenderer = stringChild.GetComponent<LineRenderer>();
+                if (enableDebugLogs)
+                    Debug.Log($"자식 오브젝트 'String'에서 라인렌더러를 찾았습니다: {bowStringRenderer}");
+            }
+        }
+
+        // "String"이라는 이름이 아니면 모든 자식에서 찾기
+        if (bowStringRenderer == null)
+        {
+            LineRenderer[] allLineRenderers = GetComponentsInChildren<LineRenderer>();
+            if (allLineRenderers.Length > 0)
+            {
+                bowStringRenderer = allLineRenderers[0];
+                if (enableDebugLogs)
+                    Debug.Log($"자식 오브젝트에서 라인렌더러를 찾았습니다: {bowStringRenderer.name}");
+            }
+        }
+
+        // 여전히 없으면 새로 생성
+        if (bowStringRenderer == null)
+        {
+            // "String" 자식 오브젝트 생성
+            GameObject stringObject = new GameObject("String");
+            stringObject.transform.SetParent(transform);
+            stringObject.transform.localPosition = Vector3.zero;
+            
+            bowStringRenderer = stringObject.AddComponent<LineRenderer>();
+            if (enableDebugLogs)
+                Debug.Log("새로운 String 오브젝트와 라인렌더러를 생성했습니다.");
+        }
+    }
+
+    /// <summary>
     /// 활 시위 설정
     /// </summary>
     private void SetupBowString()
     {
+        // 라인렌더러가 없으면 다시 찾기
         if (bowStringRenderer == null)
         {
-            bowStringRenderer = gameObject.AddComponent<LineRenderer>();
+            FindBowStringRenderer();
         }
 
+        if (bowStringRenderer == null)
+        {
+            Debug.LogError("라인렌더러를 찾을 수 없습니다!");
+            return;
+        }
+
+        // 라인렌더러 기본 설정
         bowStringRenderer.material = new Material(Shader.Find("Sprites/Default"));
         bowStringRenderer.startColor = stringColor;
         bowStringRenderer.endColor = stringColor;
         bowStringRenderer.startWidth = stringWidth;
         bowStringRenderer.endWidth = stringWidth;
         bowStringRenderer.positionCount = 3;
-        bowStringRenderer.useWorldSpace = false;
+        bowStringRenderer.useWorldSpace = true; // 월드 스페이스 사용
 
         // 시위 기본 위치 설정
         if (stringStartPoint != null && stringEndPoint != null)
         {
-            //originalStringPosition = (stringStartPoint.localPosition + stringEndPoint.localPosition) * 0.5f;
             ResetBowString();
         }
+        else
+        {
+            // stringStartPoint와 stringEndPoint가 없으면 기본 위치 설정
+            SetupDefaultStringPositions();
+        }
+
+        if (enableDebugLogs)
+            Debug.Log($"라인렌더러 설정 완료: {bowStringRenderer.name}");
+    }
+
+    /// <summary>
+    /// 기본 시위 위치 설정 (stringStartPoint와 stringEndPoint가 없을 때)
+    /// </summary>
+    private void SetupDefaultStringPositions()
+    {
+        if (bowStringRenderer == null) return;
+
+        // 활의 기본 크기에 맞춰 시위 위치 설정
+        Vector3 bowCenter = transform.position;
+        Vector3 bowForward = transform.forward;
+        Vector3 bowRight = transform.right;
+        
+        // 시위의 기본 위치 (활의 양쪽 끝)
+        Vector3 leftPoint = bowCenter - bowRight * 0.3f;
+        Vector3 rightPoint = bowCenter + bowRight * 0.3f;
+        Vector3 centerPoint = bowCenter + bowForward * 0.1f; // 약간 앞으로
+
+        bowStringRenderer.SetPosition(0, leftPoint);
+        bowStringRenderer.SetPosition(1, centerPoint);
+        bowStringRenderer.SetPosition(2, rightPoint);
+
+        if (enableDebugLogs)
+            Debug.Log("기본 시위 위치가 설정되었습니다.");
     }
 
     /// <summary>
@@ -303,6 +396,12 @@ public class BowController : MonoBehaviour
     /// <returns>시위 중앙 위치</returns>
     private Vector3 GetStringCenterPosition()
     {
+        // 라인렌더러가 없으면 찾기
+        if (bowStringRenderer == null)
+        {
+            FindBowStringRenderer();
+        }
+
         if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
         {
             Vector3 stringCenter = bowStringRenderer.GetPosition(1);
@@ -337,6 +436,12 @@ public class BowController : MonoBehaviour
     /// <returns>시위 중앙에서의 회전</returns>
     private Quaternion GetStringCenterRotation()
     {
+        // 라인렌더러가 없으면 찾기
+        if (bowStringRenderer == null)
+        {
+            FindBowStringRenderer();
+        }
+
         if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
         {
             // 시위의 방향을 계산하여 회전 결정
@@ -696,54 +801,96 @@ public class BowController : MonoBehaviour
     // 시위(Line Renderer)를 기본 위치로 되돌림
     private void ResetBowString()
     {
-        if (bowStringRenderer != null)
+        if (bowStringRenderer == null)
         {
-            bowStringRenderer.positionCount = 3;
-            //bowStringRenderer.SetPosition(0, stringStartPoint.position);
-            //bowStringRenderer.SetPosition(2, stringEndPoint.position);
+            FindBowStringRenderer();
+            if (bowStringRenderer == null) return;
+        }
 
-            //시위를 활에 묶어놓는 pivot
+        bowStringRenderer.positionCount = 3;
+
+        // _bowStringPoint 배열이 있으면 사용
+        if (_bowStringPoint != null && _bowStringPoint.Length >= 3)
+        {
             bowStringRenderer.SetPosition(0, _bowStringPoint[0].position);
             bowStringRenderer.SetPosition(2, _bowStringPoint[2].position);
 
             //활을 당겼을 때 라인을 다시 복귀하게 하는 pivot
-            _ColliderStringPoint.transform.position = _bowStringPoint[1].position;
-            bowStringRenderer.SetPosition(1, _ColliderStringPoint.position);
+            if (_ColliderStringPoint != null)
+            {
+                _ColliderStringPoint.transform.position = _bowStringPoint[1].position;
+                bowStringRenderer.SetPosition(1, _ColliderStringPoint.position);
+            }
+            else
+            {
+                bowStringRenderer.SetPosition(1, _bowStringPoint[1].position);
+            }
         }
+        // stringStartPoint와 stringEndPoint가 있으면 사용
+        else if (stringStartPoint != null && stringEndPoint != null)
+        {
+            Vector3 centerPoint = (stringStartPoint.position + stringEndPoint.position) * 0.5f;
+            bowStringRenderer.SetPosition(0, stringStartPoint.position);
+            bowStringRenderer.SetPosition(1, centerPoint);
+            bowStringRenderer.SetPosition(2, stringEndPoint.position);
+        }
+        // 기본 위치 사용
+        else
+        {
+            SetupDefaultStringPositions();
+        }
+
+        if (enableDebugLogs)
+            Debug.Log("시위가 기본 위치로 리셋되었습니다.");
     }
 
     // 시위를 당긴 손 위치로 업데이트
     private void UpdateBowString(Vector3 pullPosition)
     {
-        if (bowStringRenderer != null)
+        if (bowStringRenderer == null)
         {
-            // 당김 거리를 계산
-            Vector3 direction = (pullPosition - nockSocket.transform.position).normalized;
-            float distance = Vector3.Distance(nockSocket.transform.position, pullPosition);
-            float clampedDistance = Mathf.Clamp(distance, 0f, maxPullDistance);
-            Vector3 clampedPullPosition = nockSocket.transform.position + direction * clampedDistance;
-
-            bowStringRenderer.positionCount = 3;
-
-            // _bowStringPoint 배열 사용 (ResetBowString과 일관성 유지)
-            if (_bowStringPoint != null && _bowStringPoint.Length >= 3)
-            {
-                bowStringRenderer.SetPosition(0, _bowStringPoint[0].position);
-                bowStringRenderer.SetPosition(1, clampedPullPosition);
-                bowStringRenderer.SetPosition(2, _bowStringPoint[2].position);
-            }
-            else
-            {
-                // fallback: stringStartPoint와 stringEndPoint 사용
-                bowStringRenderer.SetPosition(0, stringStartPoint.position);
-                bowStringRenderer.SetPosition(1, clampedPullPosition);
-                bowStringRenderer.SetPosition(2, stringEndPoint.position);
-            }
-
-            // 당김 강도 이벤트 호출
-            float pullStrength = clampedDistance / maxPullDistance;
-            OnPullStrengthChanged?.Invoke(pullStrength);
+            FindBowStringRenderer();
+            if (bowStringRenderer == null) return;
         }
+
+        // 당김 거리를 계산
+        Vector3 direction = (pullPosition - nockSocket.transform.position).normalized;
+        float distance = Vector3.Distance(nockSocket.transform.position, pullPosition);
+        float clampedDistance = Mathf.Clamp(distance, 0f, maxPullDistance);
+        Vector3 clampedPullPosition = nockSocket.transform.position + direction * clampedDistance;
+
+        bowStringRenderer.positionCount = 3;
+
+        // _bowStringPoint 배열 사용 (ResetBowString과 일관성 유지)
+        if (_bowStringPoint != null && _bowStringPoint.Length >= 3)
+        {
+            bowStringRenderer.SetPosition(0, _bowStringPoint[0].position);
+            bowStringRenderer.SetPosition(1, clampedPullPosition);
+            bowStringRenderer.SetPosition(2, _bowStringPoint[2].position);
+        }
+        // stringStartPoint와 stringEndPoint 사용
+        else if (stringStartPoint != null && stringEndPoint != null)
+        {
+            bowStringRenderer.SetPosition(0, stringStartPoint.position);
+            bowStringRenderer.SetPosition(1, clampedPullPosition);
+            bowStringRenderer.SetPosition(2, stringEndPoint.position);
+        }
+        // 기본 위치 사용
+        else
+        {
+            Vector3 bowCenter = transform.position;
+            Vector3 bowRight = transform.right;
+            Vector3 leftPoint = bowCenter - bowRight * 0.3f;
+            Vector3 rightPoint = bowCenter + bowRight * 0.3f;
+            
+            bowStringRenderer.SetPosition(0, leftPoint);
+            bowStringRenderer.SetPosition(1, clampedPullPosition);
+            bowStringRenderer.SetPosition(2, rightPoint);
+        }
+
+        // 당김 강도 이벤트 호출
+        float pullStrength = clampedDistance / maxPullDistance;
+        OnPullStrengthChanged?.Invoke(pullStrength);
     }
 
     // 인스펙터에서 화살 생성 (테스트용)
@@ -824,10 +971,42 @@ public class BowController : MonoBehaviour
     [ContextMenu("Debug String Center Position")]
     public void DebugStringCenterPosition()
     {
+        // 라인렌더러 찾기 과정 디버그
+        Debug.Log("=== 라인렌더러 찾기 과정 디버그 ===");
+        
+        // 현재 오브젝트에서 찾기
+        LineRenderer currentLR = GetComponent<LineRenderer>();
+        Debug.Log($"현재 오브젝트 라인렌더러: {(currentLR != null ? currentLR.name : "없음")}");
+        
+        // "String" 자식에서 찾기
+        Transform stringChild = transform.Find("String");
+        Debug.Log($"String 자식 오브젝트: {(stringChild != null ? stringChild.name : "없음")}");
+        if (stringChild != null)
+        {
+            LineRenderer stringLR = stringChild.GetComponent<LineRenderer>();
+            Debug.Log($"String 자식 라인렌더러: {(stringLR != null ? stringLR.name : "없음")}");
+        }
+        
+        // 모든 자식에서 찾기
+        LineRenderer[] allLineRenderers = GetComponentsInChildren<LineRenderer>();
+        Debug.Log($"모든 자식 라인렌더러 수: {allLineRenderers.Length}");
+        for (int i = 0; i < allLineRenderers.Length; i++)
+        {
+            Debug.Log($"자식 라인렌더러 {i}: {allLineRenderers[i].name} (부모: {allLineRenderers[i].transform.parent.name})");
+        }
+        
+        // 현재 할당된 라인렌더러
+        Debug.Log($"현재 할당된 라인렌더러: {(bowStringRenderer != null ? bowStringRenderer.name : "없음")}");
+        
+        // 라인렌더러 다시 찾기
+        FindBowStringRenderer();
+        Debug.Log($"다시 찾은 라인렌더러: {(bowStringRenderer != null ? bowStringRenderer.name : "없음")}");
+        
+        // 위치 정보
         Vector3 centerPos = GetStringCenterPosition();
         Quaternion centerRot = GetStringCenterRotation();
         
-        Debug.Log($"=== 라인렌더러 인덱스 1번 위치 디버그 ===");
+        Debug.Log($"=== 위치 정보 ===");
         Debug.Log($"위치: {centerPos}");
         Debug.Log($"회전: {centerRot.eulerAngles}");
         Debug.Log($"시위 당김 상태: {isStringBeingPulled}");
@@ -849,6 +1028,12 @@ public class BowController : MonoBehaviour
     /// </summary>
     void OnDrawGizmosSelected()
     {
+        // 라인렌더러가 없으면 찾기
+        if (bowStringRenderer == null)
+        {
+            FindBowStringRenderer();
+        }
+
         if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
         {
             Vector3 centerPos = bowStringRenderer.GetPosition(1);
@@ -866,6 +1051,14 @@ public class BowController : MonoBehaviour
             Vector3 direction = GetStringCenterRotation() * Vector3.forward;
             Gizmos.color = Color.green;
             Gizmos.DrawRay(centerPos, direction * 0.2f);
+        }
+        else
+        {
+            // 라인렌더러가 없으면 활의 기본 위치에 표시
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, 0.05f);
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(transform.position, transform.forward * 0.2f);
         }
     }
 }
