@@ -190,31 +190,6 @@ public class BowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 기본 시위 위치 설정 (stringStartPoint와 stringEndPoint가 없을 때)
-    /// </summary>
-    private void SetupDefaultStringPositions()
-    {
-        if (bowStringRenderer == null) return;
-
-        // 활의 기본 크기에 맞춰 시위 위치 설정
-        Vector3 bowCenter = transform.position;
-        Vector3 bowForward = transform.forward;
-        Vector3 bowRight = transform.right;
-        
-        // 시위의 기본 위치 (활의 양쪽 끝)
-        Vector3 leftPoint = bowCenter - bowRight * 0.3f;
-        Vector3 rightPoint = bowCenter + bowRight * 0.3f;
-        Vector3 centerPoint = bowCenter + bowForward * 0.1f; // 약간 앞으로
-
-        bowStringRenderer.SetPosition(0, leftPoint);
-        bowStringRenderer.SetPosition(1, centerPoint);
-        bowStringRenderer.SetPosition(2, rightPoint);
-
-        if (enableDebugLogs)
-            Debug.Log("기본 시위 위치가 설정되었습니다.");
-    }
-
-    /// <summary>
     /// 시위 당김 감지 설정
     /// </summary>
     private void SetupStringPullDetection()
@@ -768,7 +743,14 @@ public class BowController : MonoBehaviour
         // 기본 위치 사용
         else
         {
-            SetupDefaultStringPositions();
+            Vector3 bowCenter = transform.position;
+            Vector3 bowRight = transform.right;
+            Vector3 leftPoint = bowCenter - bowRight * 0.3f;
+            Vector3 rightPoint = bowCenter + bowRight * 0.3f;
+            
+            bowStringRenderer.SetPosition(0, leftPoint);
+            bowStringRenderer.SetPosition(1, bowCenter + bowRight * 0.1f); // 약간 앞으로
+            bowStringRenderer.SetPosition(2, rightPoint);
         }
 
         if (enableDebugLogs)
