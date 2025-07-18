@@ -127,8 +127,8 @@ public class BowController : MonoBehaviour
         if (stringPullInteractable != null)
         {
             stringPullInteractable.PullActionReleased -= OnStringReleased;
-            stringPullInteractable.PullActionStarted -= OnStringPullStarted;
-            stringPullInteractable.PullActionCanceled -= OnStringPullCanceled;
+            stringPullInteractable.selectEntered.RemoveListener(OnStringPullStarted);
+            stringPullInteractable.selectExited.RemoveListener(OnStringPullCanceled);
         }
     }
 
@@ -204,8 +204,8 @@ public class BowController : MonoBehaviour
 
         // 시위 당김 이벤트 등록
         stringPullInteractable.PullActionReleased += OnStringReleased;
-        stringPullInteractable.PullActionStarted += OnStringPullStarted;
-        stringPullInteractable.PullActionCanceled += OnStringPullCanceled;
+        stringPullInteractable.selectEntered.AddListener(OnStringPullStarted);
+        stringPullInteractable.selectExited.AddListener(OnStringPullCanceled);
     }
 
     /// <summary>
@@ -320,14 +320,12 @@ public class BowController : MonoBehaviour
         {
             launcher.Initialize(stringPullInteractable);
 
-            // 이벤트 연결
+            // 이벤트 연결 (화살 카운트는 FireArrow나 Shoot에서 처리)
             launcher.OnArrowLaunched += () => {
-                currentArrowCount--;
-                OnArrowCountChanged?.Invoke(currentArrowCount);
                 OnArrowReleased?.Invoke();
 
                 if (enableDebugLogs)
-                    Debug.Log($"화살이 발사되었습니다. 남은 화살 수: {currentArrowCount}");
+                    Debug.Log("화살이 발사되었습니다.");
             };
         }
 
@@ -392,7 +390,7 @@ public class BowController : MonoBehaviour
     /// 시위 당김 시작 이벤트 처리
     /// </summary>
     /// <param name="args">당김 이벤트 인자</param>
-    private void OnStringPullStarted(PullActionEventArgs args)
+    private void OnStringPullStarted(SelectEnterEventArgs args)
     {
         isStringBeingPulled = true;
         
@@ -414,7 +412,7 @@ public class BowController : MonoBehaviour
     /// 시위 당김 취소 이벤트 처리
     /// </summary>
     /// <param name="args">당김 이벤트 인자</param>
-    private void OnStringPullCanceled(PullActionEventArgs args)
+    private void OnStringPullCanceled(SelectExitEventArgs args)
     {
         isStringBeingPulled = false;
         
@@ -550,14 +548,17 @@ public class BowController : MonoBehaviour
         {
             Debug.LogError("화살에 Rigidbody가 없습니다!");
         }
+
+        // 화살 카운트 감소 및 이벤트 호출
+        currentArrowCount--;
+        OnArrowCountChanged?.Invoke(currentArrowCount);
+        OnArrowReleased?.Invoke();
     }
     void SpawnArrow()
     {
-        if (arrowPrefab != null && arrowSpawnPoint != null)
+        if (currentArrowCount < maxArrows)
         {
-            Instantiate(arrowPrefab, arrowSpawnPoint.position, arrowSpawnPoint.rotation);
-            currentArrowCount++;
-            Debug.Log("화살 생성!");
+            SpawnArrowInHand();
         }
     }
     /// <summary>
@@ -590,6 +591,11 @@ public class BowController : MonoBehaviour
                 arrowRigidbody.AddForce(shootDirection * finalForce, ForceMode.Impulse);
             }
         }
+
+        // 화살 카운트 감소 및 이벤트 호출
+        currentArrowCount--;
+        OnArrowCountChanged?.Invoke(currentArrowCount);
+        OnArrowReleased?.Invoke();
 
         // 화살 상태 리셋
         nockedArrow = null;
