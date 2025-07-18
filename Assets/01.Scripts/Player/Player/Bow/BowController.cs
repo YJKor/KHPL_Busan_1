@@ -274,9 +274,13 @@ public class BowController : MonoBehaviour
     /// </summary>
     private void SpawnArrowInHand()
     {
-        if (arrowPrefab != null && arrowSpawnPoint != null)
+        if (arrowPrefab != null)
         {
-            GameObject newArrow = Instantiate(arrowPrefab, arrowSpawnPoint.position, arrowSpawnPoint.rotation);
+            // 라인렌더러의 인덱스 1번 위치를 화살 스폰 위치로 사용
+            Vector3 spawnPosition = GetStringCenterPosition();
+            Quaternion spawnRotation = GetStringCenterRotation();
+            
+            GameObject newArrow = Instantiate(arrowPrefab, spawnPosition, spawnRotation);
             SetupArrowComponents(newArrow);
             currentArrowCount++;
             OnArrowCountChanged?.Invoke(currentArrowCount);
@@ -285,8 +289,94 @@ public class BowController : MonoBehaviour
             PlayArrowSpawnFeedback();
 
             if (enableDebugLogs)
+            {
                 Debug.Log($"화살이 생성되었습니다. 현재 화살 수: {currentArrowCount}");
+                Debug.Log($"화살 생성 위치: {spawnPosition}");
+                Debug.Log($"화살 생성 회전: {spawnRotation.eulerAngles}");
+            }
         }
+    }
+
+    /// <summary>
+    /// 라인렌더러의 인덱스 1번 위치를 가져옵니다 (시위 중앙)
+    /// </summary>
+    /// <returns>시위 중앙 위치</returns>
+    private Vector3 GetStringCenterPosition()
+    {
+        if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
+        {
+            Vector3 stringCenter = bowStringRenderer.GetPosition(1);
+            
+            // 시위가 당겨진 상태인지 확인하고 적절한 위치 반환
+            if (isStringBeingPulled || isArrowNocked)
+            {
+                // 시위가 당겨진 상태라면 현재 당겨진 위치 반환
+                return stringCenter;
+            }
+            else
+            {
+                // 시위가 당겨지지 않은 상태라면 기본 중앙 위치 반환
+                return stringCenter;
+            }
+        }
+        else if (arrowSpawnPoint != null)
+        {
+            // fallback: 기존 arrowSpawnPoint 사용
+            return arrowSpawnPoint.position;
+        }
+        else
+        {
+            // fallback: 활의 현재 위치 사용
+            return transform.position;
+        }
+    }
+
+    /// <summary>
+    /// 라인렌더러의 인덱스 1번 위치에서의 회전을 계산합니다
+    /// </summary>
+    /// <returns>시위 중앙에서의 회전</returns>
+    private Quaternion GetStringCenterRotation()
+    {
+        if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
+        {
+            // 시위의 방향을 계산하여 회전 결정
+            Vector3 pos0 = bowStringRenderer.GetPosition(0);
+            Vector3 pos1 = bowStringRenderer.GetPosition(1);
+            Vector3 pos2 = bowStringRenderer.GetPosition(2);
+            
+            // 시위의 평균 방향 계산 (더 정확한 방향 계산)
+            Vector3 leftHalf = (pos1 - pos0).normalized;
+            Vector3 rightHalf = (pos2 - pos1).normalized;
+            Vector3 stringDirection = (leftHalf + rightHalf).normalized;
+            
+            // 시위가 당겨진 상태라면 활의 전방 방향을 우선 사용
+            if (isStringBeingPulled || isArrowNocked)
+            {
+                // 활의 전방 방향과 시위 방향을 결합
+                Vector3 bowForward = transform.forward;
+                Vector3 combinedDirection = (bowForward + stringDirection).normalized;
+                
+                if (combinedDirection != Vector3.zero)
+                {
+                    return Quaternion.LookRotation(combinedDirection);
+                }
+            }
+            
+            // 기본적으로 시위 방향 사용
+            if (stringDirection != Vector3.zero)
+            {
+                return Quaternion.LookRotation(stringDirection);
+            }
+        }
+        
+        // fallback: 기존 arrowSpawnPoint의 회전 사용
+        if (arrowSpawnPoint != null)
+        {
+            return arrowSpawnPoint.rotation;
+        }
+        
+        // fallback: 활의 회전 사용
+        return transform.rotation;
     }
 
     /// <summary>
@@ -300,10 +390,11 @@ public class BowController : MonoBehaviour
             audioSource.PlayOneShot(arrowSpawnSound);
         }
 
-        // 화살 생성 파티클 효과 재생
+        // 화살 생성 파티클 효과 재생 (라인렌더러 인덱스 1번 위치에서)
         if (arrowSpawnEffect != null)
         {
-            arrowSpawnEffect.transform.position = arrowSpawnPoint.position;
+            Vector3 spawnPosition = GetStringCenterPosition();
+            arrowSpawnEffect.transform.position = spawnPosition;
             arrowSpawnEffect.Play();
         }
     }
@@ -659,15 +750,19 @@ public class BowController : MonoBehaviour
     [ContextMenu("Create Arrow")]
     public void CreateArrow()
     {
-        if (arrowPrefab != null && arrowSpawnPoint != null)
+        if (arrowPrefab != null)
         {
-            GameObject newArrow = Instantiate(arrowPrefab, arrowSpawnPoint.position, arrowSpawnPoint.rotation);
+            // 라인렌더러의 인덱스 1번 위치를 화살 스폰 위치로 사용
+            Vector3 spawnPosition = GetStringCenterPosition();
+            Quaternion spawnRotation = GetStringCenterRotation();
+            
+            GameObject newArrow = Instantiate(arrowPrefab, spawnPosition, spawnRotation);
             SetupArrowComponents(newArrow);
             Debug.Log("화살이 수동으로 생성되었습니다.");
         }
         else
         {
-            Debug.LogError("화살 프리팹이나 생성 위치가 설정되지 않았습니다!");
+            Debug.LogError("화살 프리팹이 설정되지 않았습니다!");
         }
     }
 
@@ -721,5 +816,56 @@ public class BowController : MonoBehaviour
         
         if (enableDebugLogs)
             Debug.Log("모든 화살이 제거되었습니다.");
+    }
+
+    /// <summary>
+    /// 라인렌더러 인덱스 1번 위치 디버그 (인스펙터에서 테스트용)
+    /// </summary>
+    [ContextMenu("Debug String Center Position")]
+    public void DebugStringCenterPosition()
+    {
+        Vector3 centerPos = GetStringCenterPosition();
+        Quaternion centerRot = GetStringCenterRotation();
+        
+        Debug.Log($"=== 라인렌더러 인덱스 1번 위치 디버그 ===");
+        Debug.Log($"위치: {centerPos}");
+        Debug.Log($"회전: {centerRot.eulerAngles}");
+        Debug.Log($"시위 당김 상태: {isStringBeingPulled}");
+        Debug.Log($"화살 장착 상태: {isArrowNocked}");
+        
+        if (bowStringRenderer != null)
+        {
+            Debug.Log($"라인렌더러 위치 수: {bowStringRenderer.positionCount}");
+            for (int i = 0; i < bowStringRenderer.positionCount; i++)
+            {
+                Debug.Log($"인덱스 {i}: {bowStringRenderer.GetPosition(i)}");
+            }
+        }
+        Debug.Log("=======================================");
+    }
+
+    /// <summary>
+    /// Gizmos로 라인렌더러 인덱스 1번 위치 시각화
+    /// </summary>
+    void OnDrawGizmosSelected()
+    {
+        if (bowStringRenderer != null && bowStringRenderer.positionCount >= 3)
+        {
+            Vector3 centerPos = bowStringRenderer.GetPosition(1);
+            
+            // 인덱스 1번 위치를 빨간 구체로 표시
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(centerPos, 0.05f);
+            
+            // 인덱스 0번과 2번 위치를 파란 구체로 표시
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireSphere(bowStringRenderer.GetPosition(0), 0.03f);
+            Gizmos.DrawWireSphere(bowStringRenderer.GetPosition(2), 0.03f);
+            
+            // 시위 방향 표시
+            Vector3 direction = GetStringCenterRotation() * Vector3.forward;
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(centerPos, direction * 0.2f);
+        }
     }
 }
