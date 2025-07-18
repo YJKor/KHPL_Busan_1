@@ -42,6 +42,12 @@ public class BowController : MonoBehaviour
     [Tooltip("최대 보유 화살 수")]
     [SerializeField] private int maxArrows = 10;
 
+    [Tooltip("시위 당김 시 화살 자동 생성 활성화")]
+    [SerializeField] private bool autoSpawnOnPull = true;
+
+    [Tooltip("시위 당김 시 화살 생성 딜레이 (초)")]
+    [SerializeField] private float pullSpawnDelay = 0.5f;
+
     [Header("Shooting")]
     [Tooltip("발사 힘 배수")]
     [SerializeField] private float shootingForceMultiplier = 25f;
@@ -62,11 +68,17 @@ public class BowController : MonoBehaviour
     [Tooltip("화살 장착 사운드")]
     [SerializeField] private AudioClip nockSound;
 
+    [Tooltip("화살 생성 사운드")]
+    [SerializeField] private AudioClip arrowSpawnSound;
+
     [Tooltip("시위 색상")]
     [SerializeField] private Color stringColor = Color.white;
 
     [Tooltip("시위 두께")]
     [SerializeField] private float stringWidth = 0.005f;
+
+    [Tooltip("화살 생성 시 파티클 효과")]
+    [SerializeField] private ParticleSystem arrowSpawnEffect;
 
     [Header("Debug")]
     [Tooltip("디버그 로그 활성화")]
@@ -90,6 +102,8 @@ public class BowController : MonoBehaviour
     public float stringTouchRadius = 0.1f;
     private bool isLeftHolding = false;
     private bool wasRightTouching = false;
+    private bool isStringBeingPulled = false;
+    private Coroutine pullSpawnCoroutine = null;
 
     // 이벤트
     public System.Action<float> OnPullStrengthChanged;
@@ -113,6 +127,8 @@ public class BowController : MonoBehaviour
         if (stringPullInteractable != null)
         {
             stringPullInteractable.PullActionReleased -= OnStringReleased;
+            stringPullInteractable.PullActionStarted -= OnStringPullStarted;
+            stringPullInteractable.PullActionCanceled -= OnStringPullCanceled;
         }
     }
 
@@ -188,6 +204,8 @@ public class BowController : MonoBehaviour
 
         // 시위 당김 이벤트 등록
         stringPullInteractable.PullActionReleased += OnStringReleased;
+        stringPullInteractable.PullActionStarted += OnStringPullStarted;
+        stringPullInteractable.PullActionCanceled += OnStringPullCanceled;
     }
 
     /// <summary>
@@ -200,6 +218,9 @@ public class BowController : MonoBehaviour
             StopCoroutine(arrowSpawnCoroutine);
         }
         arrowSpawnCoroutine = StartCoroutine(AutoArrowSpawn());
+
+        // 게임 시작 시 초기 화살 생성
+        StartCoroutine(InitialArrowSpawn());
     }
 
     /// <summary>
@@ -218,6 +239,37 @@ public class BowController : MonoBehaviour
     }
 
     /// <summary>
+    /// 게임 시작 시 초기 화살 생성
+    /// </summary>
+    private IEnumerator InitialArrowSpawn()
+    {
+        yield return new WaitForSeconds(0.5f); // 게임 시작 후 잠시 대기
+        
+        // 초기 화살 3개 생성
+        for (int i = 0; i < 3 && currentArrowCount < maxArrows; i++)
+        {
+            SpawnArrowInHand();
+            yield return new WaitForSeconds(0.2f); // 화살 간 생성 간격
+        }
+    }
+
+    /// <summary>
+    /// 시위 당김 시 화살 생성 코루틴
+    /// </summary>
+    private IEnumerator SpawnArrowOnPull()
+    {
+        yield return new WaitForSeconds(pullSpawnDelay);
+        
+        if (isStringBeingPulled && currentArrowCount < maxArrows)
+        {
+            SpawnArrowInHand();
+            
+            if (enableDebugLogs)
+                Debug.Log("시위 당김으로 인한 화살 생성!");
+        }
+    }
+
+    /// <summary>
     /// 손에 화살 생성
     /// </summary>
     private void SpawnArrowInHand()
@@ -229,8 +281,30 @@ public class BowController : MonoBehaviour
             currentArrowCount++;
             OnArrowCountChanged?.Invoke(currentArrowCount);
 
+            // 화살 생성 시 시각적/청각적 피드백
+            PlayArrowSpawnFeedback();
+
             if (enableDebugLogs)
                 Debug.Log($"화살이 생성되었습니다. 현재 화살 수: {currentArrowCount}");
+        }
+    }
+
+    /// <summary>
+    /// 화살 생성 시 피드백 재생
+    /// </summary>
+    private void PlayArrowSpawnFeedback()
+    {
+        // 화살 생성 사운드 재생
+        if (arrowSpawnSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(arrowSpawnSound);
+        }
+
+        // 화살 생성 파티클 효과 재생
+        if (arrowSpawnEffect != null)
+        {
+            arrowSpawnEffect.transform.position = arrowSpawnPoint.position;
+            arrowSpawnEffect.Play();
         }
     }
 
@@ -286,6 +360,15 @@ public class BowController : MonoBehaviour
     /// <param name="value">당김 강도 (0-1)</param>
     private void OnStringReleased(float value)
     {
+        isStringBeingPulled = false;
+        
+        // 당김 중 화살 생성 코루틴 중지
+        if (pullSpawnCoroutine != null)
+        {
+            StopCoroutine(pullSpawnCoroutine);
+            pullSpawnCoroutine = null;
+        }
+
         if (isArrowNocked && nockedArrow != null)
         {
             // 화살 발사
@@ -305,6 +388,47 @@ public class BowController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 시위 당김 시작 이벤트 처리
+    /// </summary>
+    /// <param name="args">당김 이벤트 인자</param>
+    private void OnStringPullStarted(PullActionEventArgs args)
+    {
+        isStringBeingPulled = true;
+        
+        if (autoSpawnOnPull && currentArrowCount < maxArrows)
+        {
+            // 당김 시작 시 화살 생성
+            if (pullSpawnCoroutine != null)
+            {
+                StopCoroutine(pullSpawnCoroutine);
+            }
+            pullSpawnCoroutine = StartCoroutine(SpawnArrowOnPull());
+        }
+
+        if (enableDebugLogs)
+            Debug.Log("시위 당김 시작!");
+    }
+
+    /// <summary>
+    /// 시위 당김 취소 이벤트 처리
+    /// </summary>
+    /// <param name="args">당김 이벤트 인자</param>
+    private void OnStringPullCanceled(PullActionEventArgs args)
+    {
+        isStringBeingPulled = false;
+        
+        // 당김 중 화살 생성 코루틴 중지
+        if (pullSpawnCoroutine != null)
+        {
+            StopCoroutine(pullSpawnCoroutine);
+            pullSpawnCoroutine = null;
+        }
+
+        if (enableDebugLogs)
+            Debug.Log("시위 당김 취소!");
+    }
+
     // Update 함수
     void Update()
     {
@@ -320,10 +444,20 @@ public class BowController : MonoBehaviour
             isRightTouching = dist <= stringTouchRadius;
         }
 
-        // 조건 충족 시 화살 생성
+        // 조건 충족 시 화살 생성 (기존 로직)
         if (isLeftHolding && isRightTouching && !wasRightTouching && currentArrowCount < maxArrows)
         {
             SpawnArrow();
+        }
+
+        // 시위 당김 중일 때 추가 화살 생성 (새로운 로직)
+        if (isStringBeingPulled && autoSpawnOnPull && currentArrowCount < maxArrows)
+        {
+            // 당김 중일 때는 일정 간격으로 화살 생성
+            if (pullSpawnCoroutine == null)
+            {
+                pullSpawnCoroutine = StartCoroutine(SpawnArrowOnPull());
+            }
         }
 
         // 시위 당김 시각적 업데이트
@@ -550,4 +684,36 @@ public class BowController : MonoBehaviour
     public int GetCurrentArrowCount() => currentArrowCount;
 
     public float GetMaxPullDistance() => maxPullDistance;
+
+    /// <summary>
+    /// 화살 수를 UI에 표시 (외부에서 호출)
+    /// </summary>
+    public void UpdateArrowCountUI()
+    {
+        OnArrowCountChanged?.Invoke(currentArrowCount);
+    }
+
+    /// <summary>
+    /// 수동으로 화살 생성 (UI 버튼 등에서 호출)
+    /// </summary>
+    public void ManualSpawnArrow()
+    {
+        if (currentArrowCount < maxArrows)
+        {
+            SpawnArrowInHand();
+        }
+    }
+
+    /// <summary>
+    /// 모든 화살 제거 (디버그용)
+    /// </summary>
+    [ContextMenu("Clear All Arrows")]
+    public void ClearAllArrows()
+    {
+        currentArrowCount = 0;
+        OnArrowCountChanged?.Invoke(currentArrowCount);
+        
+        if (enableDebugLogs)
+            Debug.Log("모든 화살이 제거되었습니다.");
+    }
 }

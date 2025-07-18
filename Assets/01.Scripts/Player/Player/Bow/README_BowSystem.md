@@ -2,6 +2,27 @@
 
 이 문서는 Unity VR에서 사용할 수 있는 완전한 활쏘기 시스템의 사용법을 설명합니다.
 
+## 🆕 새로운 기능 (v2.0)
+
+### 시위 당김 시 자동 화살 생성
+- **기능**: 시위를 당기기 시작할 때마다 자동으로 화살이 생성됩니다
+- **설정**: `autoSpawnOnPull` 옵션으로 활성화/비활성화 가능
+- **딜레이**: `pullSpawnDelay`로 생성 딜레이 조절 가능
+
+### 게임 시작 시 초기 화살 생성
+- **기능**: 게임 시작 시 자동으로 3개의 화살이 생성됩니다
+- **목적**: 플레이어가 즉시 활쏘기를 시작할 수 있도록 함
+
+### 화살 수 UI 시스템
+- **ArrowCountUI**: 화살 수를 실시간으로 표시하는 UI 컴포넌트
+- **시각적 피드백**: 화살 수가 적을 때 색상 변경 및 펄스 애니메이션
+- **프로그레스 바**: 현재 화살 수를 시각적으로 표시
+
+### 향상된 피드백 시스템
+- **사운드**: 화살 생성 시 전용 사운드 재생
+- **파티클**: 화살 생성 시 시각적 효과
+- **이벤트**: 화살 수 변경 시 외부 시스템에 알림
+
 ## 시스템 구성 요소
 
 ### 1. ArrowLauncher.cs
@@ -25,8 +46,17 @@
 - **주요 기능**:
   - 시위 시각적 표현 (LineRenderer)
   - 화살 장착/해제 감지
-  - 자동 화살 생성
+  - 자동 화살 생성 (기존 + 시위 당김 시)
   - 이벤트 시스템
+  - 게임 시작 시 초기 화살 생성
+
+### 4. ArrowCountUI.cs 🆕
+- **역할**: 화살 수를 UI에 표시
+- **주요 기능**:
+  - 실시간 화살 수 표시
+  - 화살 수가 적을 때 시각적 경고
+  - 펄스 애니메이션
+  - 프로그레스 바 표시
 
 ## 설정 방법
 
@@ -90,6 +120,30 @@
    - TargetController 스크립트 추가 (선택사항)
    ```
 
+### 4. UI 설정 🆕
+
+1. **Canvas 생성**:
+   ```
+   - UI > Canvas 생성
+   - Canvas Scaler 설정 (World Space 권장)
+   ```
+
+2. **ArrowCountUI 설정**:
+   ```
+   - 빈 GameObject 생성
+   - ArrowCountUI 스크립트 추가
+   - TextMeshPro - Text (UI) 추가
+   - Image 컴포넌트 추가 (화살 아이콘용)
+   - Slider 컴포넌트 추가 (프로그레스 바용)
+   ```
+
+3. **UI 요소 연결**:
+   ```
+   - Arrow Count Text: TextMeshProUGUI 연결
+   - Arrow Icon: Image 컴포넌트 연결
+   - Arrow Progress Bar: Slider 컴포넌트 연결
+   ```
+
 ## 사용법
 
 ### 1. 기본 활쏘기
@@ -99,12 +153,21 @@
 3. **시위 당기기**: 다른 손으로 시위를 당깁니다
 4. **발사**: 시위를 놓으면 화살이 발사됩니다
 
-### 2. 고급 기능
+### 2. 🆕 시위 당김 시 자동 화살 생성
+
+1. **활성화**: BowController의 `Auto Spawn On Pull` 옵션을 체크
+2. **딜레이 설정**: `Pull Spawn Delay`로 생성 딜레이 조절
+3. **사용**: 시위를 당기기 시작하면 자동으로 화살이 생성됨
+
+### 3. 고급 기능
 
 - **자동 화살 생성**: 설정된 간격으로 자동 생성
+- **시위 당김 시 화살 생성**: 시위를 당길 때마다 화살 생성 🆕
+- **게임 시작 시 초기 화살**: 게임 시작 시 3개 화살 자동 생성 🆕
 - **점수 시스템**: 타겟 맞추기 시 점수 획득
 - **이펙트 시스템**: 발사/충돌 시 시각/청각 효과
 - **물리 시뮬레이션**: 현실적인 화살 비행
+- **화살 수 UI**: 실시간 화살 수 표시 및 경고 🆕
 
 ## 주요 설정 옵션
 
@@ -140,6 +203,31 @@ public float maxPullDistance = 0.6f;        // 최대 당김 거리
 [Header("Arrow System")]
 public float arrowSpawnInterval = 2f;       // 화살 생성 간격
 public int maxArrows = 10;                  // 최대 화살 수
+public bool autoSpawnOnPull = true;         // 🆕 시위 당김 시 자동 생성
+public float pullSpawnDelay = 0.5f;        // 🆕 당김 시 생성 딜레이
+
+[Header("Visual & Audio")]
+public AudioClip arrowSpawnSound;           // 🆕 화살 생성 사운드
+public ParticleSystem arrowSpawnEffect;     // 🆕 화살 생성 파티클
+```
+
+### ArrowCountUI 설정 🆕
+```csharp
+[Header("UI References")]
+public TextMeshProUGUI arrowCountText;      // 화살 수 텍스트
+public Image arrowIcon;                     // 화살 아이콘
+public Slider arrowProgressBar;             // 프로그레스 바
+
+[Header("Settings")]
+public string arrowCountFormat = "화살: {0}"; // 텍스트 형식
+public Color normalColor = Color.white;     // 일반 색상
+public Color lowArrowColor = Color.red;     // 적은 화살 색상
+public int lowArrowThreshold = 3;           // 경고 임계값
+
+[Header("Animation")]
+public bool enablePulseAnimation = true;    // 펄스 애니메이션
+public float pulseSpeed = 2f;               // 펄스 속도
+public float pulseScale = 1.2f;             // 펄스 크기
 ```
 
 ## 이벤트 시스템
@@ -167,7 +255,32 @@ void Start()
     bowController.OnArrowReleased += () => {
         Debug.Log("화살이 발사되었습니다!");
     };
+    
+    bowController.OnArrowCountChanged += (count) => {
+        Debug.Log($"현재 화살 수: {count}");
+        // UI 업데이트 또는 다른 시스템에 알림
+    };
 }
+```
+
+### 🆕 새로운 이벤트 사용 예시
+```csharp
+// 화살 수가 변경될 때 UI 업데이트
+bowController.OnArrowCountChanged += (count) => {
+    arrowCountText.text = $"화살: {count}";
+    
+    // 화살 수가 적을 때 경고
+    if (count <= 3) {
+        arrowCountText.color = Color.red;
+        // 경고 사운드 재생
+        PlayWarningSound();
+    }
+};
+
+// 화살이 발사될 때 점수 시스템에 알림
+bowController.OnArrowReleased += () => {
+    scoreManager.OnArrowShot();
+};
 ```
 
 ## 문제 해결
@@ -189,10 +302,43 @@ void Start()
    - 시위 시작점/끝점 Transform 설정 확인
    - Material 설정 확인
 
+4. **🆕 시위 당김 시 화살이 생성되지 않음**:
+   - `autoSpawnOnPull` 옵션이 활성화되어 있는지 확인
+   - `pullSpawnDelay` 값이 너무 크지 않은지 확인
+   - XRPullInteractable의 이벤트가 제대로 연결되어 있는지 확인
+   - `maxArrows`에 도달하지 않았는지 확인
+
+5. **🆕 UI가 업데이트되지 않음**:
+   - ArrowCountUI 스크립트가 제대로 연결되어 있는지 확인
+   - TextMeshProUGUI, Image, Slider 컴포넌트가 할당되어 있는지 확인
+   - BowController의 이벤트가 제대로 발생하는지 확인
+
+6. **🆕 게임 시작 시 초기 화살이 생성되지 않음**:
+   - BowController의 `arrowPrefab`이 설정되어 있는지 확인
+   - `arrowSpawnPoint`가 설정되어 있는지 확인
+   - 디버그 로그를 확인하여 초기화 과정에서 오류가 없는지 확인
+
 ### 디버그 모드
 ```csharp
 // BowController에서 디버그 로그 활성화
 [SerializeField] private bool enableDebugLogs = true;
+
+// ArrowCountUI에서 디버그 로그 활성화
+private bool enableDebugLogs = true;
+```
+
+### 🆕 새로운 디버그 기능
+```csharp
+// 수동으로 화살 생성 (인스펙터에서 테스트)
+[ContextMenu("Create Arrow")]
+public void CreateArrow() { ... }
+
+// 모든 화살 제거 (인스펙터에서 테스트)
+[ContextMenu("Clear All Arrows")]
+public void ClearAllArrows() { ... }
+
+// 수동으로 화살 생성 (UI 버튼에서 호출)
+public void ManualSpawnArrow() { ... }
 ```
 
 ## 성능 최적화
