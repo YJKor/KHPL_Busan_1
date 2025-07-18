@@ -80,6 +80,15 @@ public class BowController : MonoBehaviour
     [Tooltip("디버그 로그 활성화")]
     [SerializeField] private bool enableDebugLogs = true;
 
+    [Tooltip("양손 동시 상호작용 허용")]
+    [SerializeField] private bool allowDualHandInteraction = true;
+
+    [Tooltip("활 잡기 감지 거리")]
+    [SerializeField] private float bowGrabDistance = 0.3f;
+
+    [Tooltip("시위 터치 감지 거리")]
+    [SerializeField] private float stringTouchDistance = 0.1f;
+
     // 내부 변수
     private IXRSelectInteractable nockedArrow = null;
     private bool isArrowNocked = false;
@@ -140,6 +149,9 @@ public class BowController : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
         }
 
+        // XR Interaction 설정
+        SetupXRInteraction();
+
         // 시위 초기화
         SetupBowString();
 
@@ -158,6 +170,41 @@ public class BowController : MonoBehaviour
 
         if (enableDebugLogs)
             Debug.Log("향상된 활 컨트롤러가 초기화되었습니다.");
+    }
+
+    /// <summary>
+    /// XR Interaction 설정
+    /// </summary>
+    private void SetupXRInteraction()
+    {
+        // XRGrabInteractable 컴포넌트 찾기 또는 추가
+        XRGrabInteractable grabInteractable = GetComponent<XRGrabInteractable>();
+        if (grabInteractable == null)
+        {
+            grabInteractable = gameObject.AddComponent<XRGrabInteractable>();
+        }
+
+        // 양손 동시 상호작용 허용 설정
+        if (allowDualHandInteraction)
+        {
+            // Multiple Interactors Select Mode 설정
+            grabInteractable.selectMode = InteractableSelectMode.Multiple;
+            
+            // 최대 선택 가능한 인터랙터 수 설정
+            grabInteractable.maxInteractors = 2;
+            
+            if (enableDebugLogs)
+                Debug.Log("양손 동시 상호작용이 활성화되었습니다.");
+        }
+        else
+        {
+            // 단일 선택 모드
+            grabInteractable.selectMode = InteractableSelectMode.Single;
+            grabInteractable.maxInteractors = 1;
+        }
+
+        // 상호작용 레이어 설정 (필요한 경우)
+        // grabInteractable.interactionLayers = InteractionLayerMask.GetMask("Default");
     }
 
     /// <summary>
@@ -531,35 +578,97 @@ public class BowController : MonoBehaviour
     void Update()
     {
         gameObject.transform.position = _bowPosition.position;
-        // 왼손이 활을 잡고 있는지 확인
-        isLeftHolding = leftController.hasSelection;
-
-        // 오른손이 시위 근처에 있는지 확인
-        bool isRightTouching = false;
-        if (rightController != null && stringTouchArea != null)
-        {
-            float dist = Vector3.Distance(rightController.transform.position, stringTouchArea.position);
-            isRightTouching = dist <= stringTouchRadius;
-        }
-
-        // 조건 충족 시 화살 생성 (기존 로직)
-        if (isLeftHolding && isRightTouching && !wasRightTouching && currentArrowCount < maxArrows)
-        {
-            SpawnArrow();
-        }
-
-        // 시위 당김 중일 때 추가 화살 생성 (새로운 로직)
-        if (isStringBeingPulled && autoSpawnOnPull && currentArrowCount < maxArrows)
-        {
-            // 당김 중일 때는 일정 간격으로 화살 생성
-            if (pullSpawnCoroutine == null)
-            {
-                pullSpawnCoroutine = StartCoroutine(SpawnArrowOnPull());
-            }
-        }
+        
+        // 양손의 상호작용 상태 확인
+        CheckHandInteractions();
 
         // 시위 당김 시각적 업데이트
-        if (isLeftHolding && isRightTouching)
+        UpdateBowStringVisuals();
+
+        // 화살 생성 로직
+        HandleArrowSpawning();
+    }
+
+    /// <summary>
+    /// 양손의 상호작용 상태 확인
+    /// </summary>
+    private void CheckHandInteractions()
+    {
+        // 왼손이 활을 잡고 있는지 확인 (더 유연한 방식)
+        isLeftHolding = IsHandHoldingBow(leftController);
+        
+        // 오른손이 시위를 잡고 있는지 확인
+        bool isRightTouching = IsHandTouchingString(rightController);
+        
+        // 이전 상태와 비교하여 변화 감지
+        if (isLeftHolding && isRightTouching && !wasRightTouching)
+        {
+            if (enableDebugLogs)
+                Debug.Log("양손이 모두 활과 시위를 잡고 있습니다!");
+        }
+        
+        wasRightTouching = isRightTouching;
+    }
+
+    /// <summary>
+    /// 손이 활을 잡고 있는지 확인
+    /// </summary>
+    /// <param name="controller">확인할 컨트롤러</param>
+    /// <returns>활을 잡고 있으면 true</returns>
+    private bool IsHandHoldingBow(XRBaseInteractor controller)
+    {
+        if (controller == null) return false;
+        
+        // 1. hasSelection으로 확인
+        if (controller.hasSelection)
+        {
+            // 선택된 오브젝트가 활인지 확인
+            IXRSelectInteractable selectedObject = controller.firstInteractableSelected;
+            if (selectedObject != null && selectedObject.transform == transform)
+            {
+                return true;
+            }
+        }
+        
+        // 2. 활과의 거리로 확인 (fallback)
+        float distanceToBow = Vector3.Distance(controller.transform.position, transform.position);
+        return distanceToBow < bowGrabDistance; // 잡기 거리 사용
+    }
+
+    /// <summary>
+    /// 손이 시위를 잡고 있는지 확인
+    /// </summary>
+    /// <param name="controller">확인할 컨트롤러</param>
+    /// <returns>시위를 잡고 있으면 true</returns>
+    private bool IsHandTouchingString(XRBaseInteractor controller)
+    {
+        if (controller == null) return false;
+        
+        // 1. stringTouchArea가 있으면 거리로 확인
+        if (stringTouchArea != null)
+        {
+            float dist = Vector3.Distance(controller.transform.position, stringTouchArea.position);
+            return dist <= stringTouchDistance; // 시위 터치 거리 사용
+        }
+        
+        // 2. 라인렌더러의 중앙점으로 확인 (fallback)
+        if (bowStringRenderer != null)
+        {
+            Vector3 stringCenter = GetStringCenterPosition();
+            float dist = Vector3.Distance(controller.transform.position, stringCenter);
+            return dist <= stringTouchDistance; // 시위 터치 거리 사용
+        }
+        
+        return false;
+    }
+
+    /// <summary>
+    /// 시위 당김 시각적 업데이트
+    /// </summary>
+    private void UpdateBowStringVisuals()
+    {
+        // 왼손이 활을 잡고 있고 오른손이 시위를 잡고 있을 때
+        if (isLeftHolding && IsHandTouchingString(rightController))
         {
             // 오른손이 시위를 당기고 있을 때 시위 위치 업데이트
             UpdateBowString(rightController.transform.position);
@@ -578,8 +687,28 @@ public class BowController : MonoBehaviour
             // 시위를 당기지 않을 때 기본 위치로 리셋
             ResetBowString();
         }
+    }
 
-        wasRightTouching = isRightTouching;
+    /// <summary>
+    /// 화살 생성 로직 처리
+    /// </summary>
+    private void HandleArrowSpawning()
+    {
+        // 조건 충족 시 화살 생성 (기존 로직)
+        if (isLeftHolding && IsHandTouchingString(rightController) && !wasRightTouching && currentArrowCount < maxArrows)
+        {
+            SpawnArrow();
+        }
+
+        // 시위 당김 중일 때 추가 화살 생성 (새로운 로직)
+        if (isStringBeingPulled && autoSpawnOnPull && currentArrowCount < maxArrows)
+        {
+            // 당김 중일 때는 일정 간격으로 화살 생성
+            if (pullSpawnCoroutine == null)
+            {
+                pullSpawnCoroutine = StartCoroutine(SpawnArrowOnPull());
+            }
+        }
     }
 
     // 화살을 소켓에 끼우고 있을 때 호출되는 함수
@@ -835,52 +964,110 @@ public class BowController : MonoBehaviour
     }
 
     /// <summary>
-    /// Gizmos로 라인렌더러 인덱스 1번 위치 시각화
+    /// 양손 상호작용 상태 디버그 (인스펙터에서 테스트용)
+    /// </summary>
+    [ContextMenu("Debug Hand Interaction")]
+    public void DebugHandInteraction()
+    {
+        Debug.Log($"=== 양손 상호작용 상태 디버그 ===");
+        
+        // 왼손 상태
+        bool leftHolding = IsHandHoldingBow(leftController);
+        Debug.Log($"왼손 활 잡기: {leftHolding}");
+        if (leftController != null)
+        {
+            Debug.Log($"왼손 hasSelection: {leftController.hasSelection}");
+            Debug.Log($"왼손 선택된 오브젝트: {(leftController.firstInteractableSelected != null ? leftController.firstInteractableSelected.name : "없음")}");
+            Debug.Log($"왼손 위치: {leftController.transform.position}");
+        }
+        
+        // 오른손 상태
+        bool rightTouching = IsHandTouchingString(rightController);
+        Debug.Log($"오른손 시위 터치: {rightTouching}");
+        if (rightController != null)
+        {
+            Debug.Log($"오른손 hasSelection: {rightController.hasSelection}");
+            Debug.Log($"오른손 위치: {rightController.transform.position}");
+        }
+        
+        // 활 상태
+        Debug.Log($"활 위치: {transform.position}");
+        Debug.Log($"활 회전: {transform.rotation.eulerAngles}");
+        
+        // 시위 상태
+        if (stringTouchArea != null)
+        {
+            Debug.Log($"시위 터치 영역 위치: {stringTouchArea.position}");
+        }
+        
+        // 거리 정보
+        if (leftController != null)
+        {
+            float leftDistance = Vector3.Distance(leftController.transform.position, transform.position);
+            Debug.Log($"왼손-활 거리: {leftDistance:F3} (임계값: {bowGrabDistance})");
+        }
+        
+        if (rightController != null && stringTouchArea != null)
+        {
+            float rightDistance = Vector3.Distance(rightController.transform.position, stringTouchArea.position);
+            Debug.Log($"오른손-시위 거리: {rightDistance:F3} (임계값: {stringTouchDistance})");
+        }
+        
+        Debug.Log("=======================================");
+    }
+
+    /// <summary>
+    /// Gizmos로 시각적 디버그 정보 표시
     /// </summary>
     void OnDrawGizmosSelected()
     {
+        if (!enableDebugLogs) return;
+
+        // 활 잡기 감지 영역
+        Gizmos.color = isLeftHolding ? Color.green : Color.red;
+        Gizmos.DrawWireSphere(transform.position, bowGrabDistance);
+        
+        // 시위 터치 감지 영역
+        if (stringTouchArea != null)
+        {
+            Gizmos.color = IsHandTouchingString(rightController) ? Color.green : Color.yellow;
+            Gizmos.DrawWireSphere(stringTouchArea.position, stringTouchDistance);
+        }
+        else if (bowStringRenderer != null)
+        {
+            Vector3 stringCenter = GetStringCenterPosition();
+            Gizmos.color = IsHandTouchingString(rightController) ? Color.green : Color.yellow;
+            Gizmos.DrawWireSphere(stringCenter, stringTouchDistance);
+        }
+
+        // 양손 위치 표시
+        if (leftController != null)
+        {
+            Gizmos.color = isLeftHolding ? Color.green : Color.red;
+            Gizmos.DrawSphere(leftController.transform.position, 0.02f);
+        }
+        
+        if (rightController != null)
+        {
+            Gizmos.color = IsHandTouchingString(rightController) ? Color.green : Color.red;
+            Gizmos.DrawSphere(rightController.transform.position, 0.02f);
+        }
+
+        // 시위 라인 표시
         if (bowStringRenderer != null)
         {
-            if (bowStringRenderer.positionCount >= 3)
+            Gizmos.color = Color.white;
+            for (int i = 0; i < bowStringRenderer.positionCount - 1; i++)
             {
-                // 3개 포인트일 때 (당김 상태)
-                Vector3 centerPos = bowStringRenderer.GetPosition(1);
-                
-                // 인덱스 1번 위치를 빨간 구체로 표시
-                Gizmos.color = Color.red;
-                Gizmos.DrawWireSphere(centerPos, 0.05f);
-                
-                // 인덱스 0번과 2번 위치를 파란 구체로 표시
-                Gizmos.color = Color.blue;
-                Gizmos.DrawWireSphere(bowStringRenderer.GetPosition(0), 0.03f);
-                Gizmos.DrawWireSphere(bowStringRenderer.GetPosition(2), 0.03f);
-                
-                // 시위 방향 표시
-                Vector3 direction = GetStringCenterRotation() * Vector3.forward;
-                Gizmos.color = Color.green;
-                Gizmos.DrawRay(centerPos, direction * 0.2f);
+                Vector3 start = bowStringRenderer.GetPosition(i);
+                Vector3 end = bowStringRenderer.GetPosition(i + 1);
+                Gizmos.DrawLine(start, end);
             }
-            else if (bowStringRenderer.positionCount == 2)
-            {
-                // 2개 포인트일 때 (기본 상태)
-                Vector3 pos0 = bowStringRenderer.GetPosition(0);
-                Vector3 pos1 = bowStringRenderer.GetPosition(1);
-                Vector3 centerPos = (pos0 + pos1) * 0.5f;
-                
-                // 중간점을 빨간 구체로 표시
-                Gizmos.color = Color.red;
-                Gizmos.DrawWireSphere(centerPos, 0.05f);
-                
-                // 시작점과 끝점을 파란 구체로 표시
-                Gizmos.color = Color.blue;
-                Gizmos.DrawWireSphere(pos0, 0.03f);
-                Gizmos.DrawWireSphere(pos1, 0.03f);
-                
-                // 시위 방향 표시
-                Vector3 direction = GetStringCenterRotation() * Vector3.forward;
-                Gizmos.color = Color.green;
-                Gizmos.DrawRay(centerPos, direction * 0.2f);
-            }
+            
+            // 중앙점 표시
+            Vector3 center = GetStringCenterPosition();
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawSphere(center, 0.01f);
         }
     }
 }
