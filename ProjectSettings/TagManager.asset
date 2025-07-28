@@ -3,22 +3,17 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags:
-  - StopMobility
-  - StringAttachPoint
-  - Castle
-  - CastleWall
-  - Arrow
+  tags: []
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - NavRoad
+  - 
   - Water
   - UI
-  - Player
-  - Bow
-  - Arrow
+  - 
+  - 
+  - PostProcessing
   - 
   - 
   - 
