@@ -3,15 +3,23 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - manager
+  - cube
+  - bullseye
+  - ground
+  - StringAttachPoint
+  - Arrow
+  - CastleWall
+  - StopMobility
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - bow
   - Water
   - UI
-  - 
+  - arrow
   - 
   - PostProcessing
   - 
