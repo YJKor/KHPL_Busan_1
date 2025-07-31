@@ -54,6 +54,21 @@ public class BowController : MonoBehaviour
     [Tooltip("시위 장력 배수")]
     [SerializeField] private float stringTension = 1.2f;
 
+    [Tooltip("당김 거리 제한 활성화")]
+    [SerializeField] private bool enablePullLimit = true;
+
+    [Tooltip("당김 거리 제한 시 시각적 피드백")]
+    [SerializeField] private bool enableVisualFeedback = true;
+
+    [Tooltip("당김 거리 제한 시 색상 변화")]
+    [SerializeField] private Color maxPullColor = Color.red;
+
+    [Tooltip("당김 거리 제한 시 진동 피드백")]
+    [SerializeField] private bool enableHapticFeedback = true;
+
+    [Tooltip("당김 거리 제한 시 진동 강도")]
+    [SerializeField] private float hapticIntensity = 0.5f;
+
     [Header("Visual & Audio")]
     [Tooltip("시위 당김 사운드")]
     [SerializeField] private AudioClip pullSound;
@@ -663,7 +678,7 @@ public class BowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 시위 당김 시각적 업데이트
+    /// 시위 시각적 업데이트 및 당김 거리 제한 처리
     /// </summary>
     private void UpdateBowStringVisuals()
     {
@@ -671,7 +686,15 @@ public class BowController : MonoBehaviour
         if (isLeftHolding && IsHandTouchingString(rightController))
         {
             // 오른손이 시위를 당기고 있을 때 시위 위치 업데이트
-            UpdateBowString(rightController.transform.position);
+            Vector3 pullPosition = rightController.transform.position;
+            
+            // 당김 거리 제한 적용
+            if (enablePullLimit)
+            {
+                pullPosition = ApplyPullDistanceLimit(pullPosition);
+            }
+            
+            UpdateBowString(pullPosition);
         }
         else if (isArrowNocked && nockedArrow != null)
         {
@@ -679,7 +702,15 @@ public class BowController : MonoBehaviour
             IXRSelectInteractor hand = nockedArrow.firstInteractorSelecting;
             if (hand != null)
             {
-                UpdateBowString(hand.transform.position);
+                Vector3 pullPosition = hand.transform.position;
+                
+                // 당김 거리 제한 적용
+                if (enablePullLimit)
+                {
+                    pullPosition = ApplyPullDistanceLimit(pullPosition);
+                }
+                
+                UpdateBowString(pullPosition);
             }
         }
         else
@@ -687,6 +718,27 @@ public class BowController : MonoBehaviour
             // 시위를 당기지 않을 때 기본 위치로 리셋
             ResetBowString();
         }
+    }
+
+    /// <summary>
+    /// 당김 거리 제한을 적용합니다.
+    /// </summary>
+    /// <param name="pullPosition">원래 당김 위치</param>
+    /// <returns>제한된 당김 위치</returns>
+    private Vector3 ApplyPullDistanceLimit(Vector3 pullPosition)
+    {
+        // 시위 중앙 위치 계산
+        Vector3 stringCenter = (stringStartPoint.position + stringEndPoint.position) * 0.5f;
+        
+        // 당김 방향과 거리 계산
+        Vector3 pullDirection = (pullPosition - stringCenter).normalized;
+        float currentDistance = Vector3.Distance(pullPosition, stringCenter);
+        
+        // 최대 당김 거리로 제한
+        float clampedDistance = Mathf.Clamp(currentDistance, 0f, maxPullDistance);
+        
+        // 제한된 위치 반환
+        return stringCenter + (pullDirection * clampedDistance);
     }
 
     /// <summary>
@@ -750,38 +802,58 @@ public class BowController : MonoBehaviour
         if (enableDebugLogs)
             Debug.Log("화살 발사! (Shoot 함수 호출)");
 
-        // args.interactorObject는 화살을 잡고 있는 손(컨트롤러)
+        if (nockedArrow == null) return;
+
         // 당김 거리를 계산합니다 (손과 소켓 사이의 거리)
         float pullDistance = Vector3.Distance(args.interactorObject.transform.position, nockSocket.transform.position);
+        
+        // 당김 거리 제한 적용
         float clampedPullDistance = Mathf.Clamp(pullDistance, 0f, maxPullDistance);
-        float finalForce = clampedPullDistance * shootingForceMultiplier;
+        
+        // 당김 강도 계산 (0-1)
+        float pullStrength = clampedPullDistance / maxPullDistance;
+        
+        // 발사 힘 계산
+        float finalForce = pullStrength * shootingForceMultiplier;
 
         if (enableDebugLogs)
-            Debug.Log($"당김 거리: {pullDistance}, 클램프된 거리: {clampedPullDistance}, 최종 힘: {finalForce}");
+            Debug.Log($"당김 거리: {pullDistance:F3}, 제한된 거리: {clampedPullDistance:F3}, 당김 강도: {pullStrength:F2}, 최종 힘: {finalForce:F2}");
 
         // 화살을 소켓에서 분리하고 물리 활성화
         Rigidbody arrowRigidbody = nockedArrow.transform.GetComponent<Rigidbody>();
         if (arrowRigidbody != null)
         {
+            // 화살을 소켓에서 분리
+            nockedArrow.transform.SetParent(null);
+            
+            // 물리 활성화
             arrowRigidbody.isKinematic = false;
             arrowRigidbody.useGravity = true;
 
-            // 화살에 전방 방향으로 힘을 가합니다.
-            Vector3 shootDirection = nockedArrow.transform.forward;
+            // 발사 방향 계산 (활의 전방 방향)
+            Vector3 shootDirection = transform.forward;
+
+            // 화살에 힘 적용
             arrowRigidbody.AddForce(shootDirection * finalForce, ForceMode.Impulse);
-
-            if (enableDebugLogs)
-                Debug.Log($"화살에 가한 힘: {shootDirection * finalForce}");
-        }
-        else
-        {
-            Debug.LogError("화살에 Rigidbody가 없습니다!");
         }
 
-        // 화살 카운트 감소 및 이벤트 호출
+        // 화살 카운트 감소
         currentArrowCount--;
         OnArrowCountChanged?.Invoke(currentArrowCount);
         OnArrowReleased?.Invoke();
+
+        // 발사 사운드 재생
+        if (releaseSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(releaseSound);
+        }
+
+        // 화살 상태 리셋
+        nockedArrow = null;
+        isArrowNocked = false;
+
+        // 시위 리셋
+        ResetBowString();
     }
     void SpawnArrow()
     {
@@ -791,40 +863,50 @@ public class BowController : MonoBehaviour
         }
     }
     /// <summary>
-    /// 화살 발사 (개선된 버전)
+    /// 화살을 발사합니다.
     /// </summary>
     /// <param name="pullStrength">당김 강도 (0-1)</param>
     private void FireArrow(float pullStrength)
     {
         if (nockedArrow == null) return;
 
-        // ArrowLauncher 컴포넌트 찾기
-        ArrowLauncher launcher = nockedArrow.transform.GetComponent<ArrowLauncher>();
-        if (launcher != null)
-        {
-            // ArrowLauncher의 Release 함수 호출
-            // 이 함수는 내부적으로 화살 발사 로직을 처리합니다
-            launcher.Initialize(stringPullInteractable);
-        }
-        else
-        {
-            // 기존 방식으로 발사 (호환성 유지)
-            Rigidbody arrowRigidbody = nockedArrow.transform.GetComponent<Rigidbody>();
-            if (arrowRigidbody != null)
-            {
-                arrowRigidbody.isKinematic = false;
-                arrowRigidbody.useGravity = true;
+        // 화살의 Rigidbody 가져오기
+        Rigidbody arrowRigidbody = nockedArrow.transform.GetComponent<Rigidbody>();
+        if (arrowRigidbody == null) return;
 
-                Vector3 shootDirection = nockedArrow.transform.forward;
-                float finalForce = pullStrength * shootingForceMultiplier;
-                arrowRigidbody.AddForce(shootDirection * finalForce, ForceMode.Impulse);
-            }
-        }
+        // 당김 거리에 따른 발사 힘 계산
+        float clampedPullStrength = Mathf.Clamp(pullStrength, 0f, 1f);
+        float finalForce = clampedPullStrength * shootingForceMultiplier;
 
-        // 화살 카운트 감소 및 이벤트 호출
+        // 화살을 소켓에서 분리
+        nockedArrow.transform.SetParent(null);
+
+        // 물리 활성화
+        arrowRigidbody.isKinematic = false;
+        arrowRigidbody.useGravity = true;
+
+        // 발사 방향 계산 (활의 전방 방향)
+        Vector3 shootDirection = transform.forward;
+
+        // 화살에 힘 적용
+        arrowRigidbody.AddForce(shootDirection * finalForce, ForceMode.Impulse);
+
+        // 화살 카운트 감소
         currentArrowCount--;
         OnArrowCountChanged?.Invoke(currentArrowCount);
         OnArrowReleased?.Invoke();
+
+        // 발사 사운드 재생
+        if (releaseSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(releaseSound);
+        }
+
+        // 디버그 로그
+        if (enableDebugLogs)
+        {
+            Debug.Log($"화살 발사! 당김 강도: {clampedPullStrength:F2}, 발사 힘: {finalForce:F2}");
+        }
 
         // 화살 상태 리셋
         nockedArrow = null;
@@ -842,26 +924,65 @@ public class BowController : MonoBehaviour
         }
     }
 
-    // 시위를 당긴 손 위치로 업데이트
+    /// <summary>
+    /// 시위를 당긴 위치로 업데이트합니다.
+    /// </summary>
+    /// <param name="pullPosition">당김 위치</param>
     private void UpdateBowString(Vector3 pullPosition)
     {
-        if (bowStringRenderer != null && stringStartPoint != null && stringEndPoint != null)
+        if (bowStringRenderer == null) return;
+
+        // 시위 중앙 위치 계산
+        Vector3 stringCenter = (stringStartPoint.position + stringEndPoint.position) * 0.5f;
+        
+        // 당김 거리 계산
+        float currentDistance = Vector3.Distance(pullPosition, stringCenter);
+        float clampedDistance = Mathf.Clamp(currentDistance, 0f, maxPullDistance);
+        
+        // 당김 강도 계산 (0-1)
+        float pullStrength = clampedDistance / maxPullDistance;
+        
+        // 이벤트 호출
+        OnPullStrengthChanged?.Invoke(pullStrength);
+
+        // 시위 위치 업데이트 (3점 라인 렌더러)
+        bowStringRenderer.positionCount = 3;
+        bowStringRenderer.SetPosition(0, stringStartPoint.position);
+        bowStringRenderer.SetPosition(1, pullPosition);
+        bowStringRenderer.SetPosition(2, stringEndPoint.position);
+
+        // 당김 거리 제한 활성화 시 시각적 피드백
+        if (enablePullLimit && enableVisualFeedback)
         {
-            // 당김 거리를 계산
-            Vector3 direction = (pullPosition - nockSocket.transform.position).normalized;
-            float distance = Vector3.Distance(nockSocket.transform.position, pullPosition);
-            float clampedDistance = Mathf.Clamp(distance, 0f, maxPullDistance);
-            Vector3 clampedPullPosition = nockSocket.transform.position + direction * clampedDistance;
+            if (clampedDistance >= maxPullDistance * 0.95f) // 95% 이상 당겼을 때
+            {
+                // 최대 당김 시 색상 변화
+                bowStringRenderer.startColor = maxPullColor;
+                bowStringRenderer.endColor = maxPullColor;
+                
+                // 진동 피드백 (간단한 구현)
+                if (enableHapticFeedback && enableDebugLogs)
+                {
+                    Debug.Log("최대 당김 거리 도달! 진동 피드백 발생");
+                }
+            }
+            else
+            {
+                // 일반 당김 시 기본 색상
+                bowStringRenderer.startColor = stringColor;
+                bowStringRenderer.endColor = stringColor;
+            }
+        }
+        else
+        {
+            // 시각적 피드백 비활성화 시 기본 색상
+            bowStringRenderer.startColor = stringColor;
+            bowStringRenderer.endColor = stringColor;
+        }
 
-            // 시위 당김 시 3개 포인트로 변경
-            bowStringRenderer.positionCount = 3;
-            bowStringRenderer.SetPosition(0, stringStartPoint.position);
-            bowStringRenderer.SetPosition(1, clampedPullPosition);
-            bowStringRenderer.SetPosition(2, stringEndPoint.position);
-
-            // 당김 강도 이벤트 호출
-            float pullStrength = clampedDistance / maxPullDistance;
-            OnPullStrengthChanged?.Invoke(pullStrength);
+        if (enableDebugLogs)
+        {
+            Debug.Log($"시위 업데이트 - 거리: {clampedDistance:F3}, 강도: {pullStrength:F2}");
         }
     }
 
@@ -1068,6 +1189,113 @@ public class BowController : MonoBehaviour
             Vector3 center = GetStringCenterPosition();
             Gizmos.color = Color.cyan;
             Gizmos.DrawSphere(center, 0.01f);
+        }
+    }
+
+    /// <summary>
+    /// 최대 당김 거리를 설정합니다.
+    /// </summary>
+    /// <param name="distance">새로운 최대 당김 거리</param>
+    public void SetMaxPullDistance(float distance)
+    {
+        maxPullDistance = Mathf.Max(0.1f, distance);
+        if (enableDebugLogs)
+        {
+            Debug.Log($"최대 당김 거리가 {maxPullDistance}로 설정되었습니다.");
+        }
+    }
+
+    /// <summary>
+    /// 당김 거리 제한을 토글합니다.
+    /// </summary>
+    public void TogglePullLimit()
+    {
+        enablePullLimit = !enablePullLimit;
+        if (enableDebugLogs)
+        {
+            Debug.Log($"당김 거리 제한이 {(enablePullLimit ? "활성화" : "비활성화")}되었습니다.");
+        }
+    }
+
+    /// <summary>
+    /// 시각적 피드백을 토글합니다.
+    /// </summary>
+    public void ToggleVisualFeedback()
+    {
+        enableVisualFeedback = !enableVisualFeedback;
+        if (enableDebugLogs)
+        {
+            Debug.Log($"시각적 피드백이 {(enableVisualFeedback ? "활성화" : "비활성화")}되었습니다.");
+        }
+    }
+
+    /// <summary>
+    /// 현재 당김 거리를 반환합니다.
+    /// </summary>
+    /// <returns>현재 당김 거리 (0-1)</returns>
+    public float GetCurrentPullStrength()
+    {
+        if (!isArrowNocked && !isStringBeingPulled) return 0f;
+        
+        Vector3 stringCenter = (stringStartPoint.position + stringEndPoint.position) * 0.5f;
+        Vector3 currentPullPosition;
+        
+        if (isArrowNocked && nockedArrow != null)
+        {
+            IXRSelectInteractor hand = nockedArrow.firstInteractorSelecting;
+            if (hand != null)
+            {
+                currentPullPosition = hand.transform.position;
+            }
+            else
+            {
+                return 0f;
+            }
+        }
+        else if (isStringBeingPulled && rightController != null)
+        {
+            currentPullPosition = rightController.transform.position;
+        }
+        else
+        {
+            return 0f;
+        }
+        
+        float distance = Vector3.Distance(currentPullPosition, stringCenter);
+        return Mathf.Clamp(distance / maxPullDistance, 0f, 1f);
+    }
+
+    /// <summary>
+    /// 디버그용 당김 거리 테스트
+    /// </summary>
+    [ContextMenu("Test Pull Distance")]
+    public void TestPullDistance()
+    {
+        float currentStrength = GetCurrentPullStrength();
+        Debug.Log($"현재 당김 강도: {currentStrength:F2} ({(currentStrength * 100):F0}%)");
+        
+        if (currentStrength >= 0.95f)
+        {
+            Debug.Log("최대 당김 거리에 도달했습니다!");
+        }
+    }
+
+    /// <summary>
+    /// 당김 거리 제한 설정을 리셋합니다.
+    /// </summary>
+    [ContextMenu("Reset Pull Settings")]
+    public void ResetPullSettings()
+    {
+        maxPullDistance = 0.6f;
+        enablePullLimit = true;
+        enableVisualFeedback = true;
+        enableHapticFeedback = true;
+        maxPullColor = Color.red;
+        hapticIntensity = 0.5f;
+        
+        if (enableDebugLogs)
+        {
+            Debug.Log("당김 거리 제한 설정이 기본값으로 리셋되었습니다.");
         }
     }
 }
