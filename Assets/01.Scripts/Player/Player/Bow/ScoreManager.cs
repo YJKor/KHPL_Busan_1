@@ -2,33 +2,56 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
-/// 게임의 점수 시스템을 관리하는 스크립트
-/// 현재 점수, 하이스코어, UI 업데이트, 저장/로드 기능을 제공합니다.
+/// Score management system for the archery game
+/// Handles score tracking, high score management, UI updates, and save/load functionality.
 /// </summary>
 public class ScoreManager : MonoBehaviour
 {
     [Header("UI References")]
-    [Tooltip("현재 점수를 표시할 UI Text 컴포넌트")]
+    [Tooltip("UI Text component to display current score")]
     public Text scoreText;
 
-    [Tooltip("하이스코어를 표시할 UI Text 컴포넌트")]
+    [Tooltip("UI Text component to display high score")]
     public Text highScoreText;
 
+    [Tooltip("TextMeshPro component for current score (alternative to Text)")]
+    public TextMeshProUGUI scoreTextTMP;
+
+    [Tooltip("TextMeshPro component for high score (alternative to Text)")]
+    public TextMeshProUGUI highScoreTextTMP;
+
     [Header("Score Settings")]
-    [Tooltip("현재 게임에서 획득한 점수")]
+    [Tooltip("Points earned from hitting targets")]
     public int currentScore = 0;
 
-    [Tooltip("저장된 최고 점수")]
+    [Tooltip("Highest score achieved")]
     public int highScore = 0;
 
-    /// <summary>PlayerPrefs에 저장할 하이스코어의 키 이름</summary>
+    [Tooltip("Points earned per target hit")]
+    public int pointsPerHit = 10;
+
+    [Tooltip("Bonus points for consecutive hits")]
+    public int consecutiveHitBonus = 5;
+
+    [Header("Events")]
+    [Tooltip("Event triggered when score changes")]
+    public System.Action<int> OnScoreChanged;
+
+    [Tooltip("Event triggered when high score is updated")]
+    public System.Action<int> OnHighScoreUpdated;
+
+    /// <summary>PlayerPrefs key for storing high score</summary>
     private const string HIGH_SCORE_KEY = "HighScore";
 
+    /// <summary>Consecutive hit counter for bonus points</summary>
+    private int consecutiveHits = 0;
+
     /// <summary>
-    /// 스크립트 초기화 시 호출되는 함수
-    /// 저장된 하이스코어를 로드하고 UI를 업데이트합니다.
+    /// Called when the script is initialized
+    /// Loads the high score and updates the UI.
     /// </summary>
     void Start()
     {
@@ -37,61 +60,110 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 점수를 추가하는 함수
-    /// 현재 점수에 지정된 점수를 더하고 하이스코어를 체크합니다.
+    /// Adds points to the current score
+    /// Updates the score display and checks for new high score.
     /// </summary>
-    /// <param name="points">추가할 점수</param>
+    /// <param name="points">Points to add</param>
     public void AddScore(int points)
     {
-        currentScore += points;
-        UpdateScoreDisplay();
+        if (points <= 0) return;
 
-        // 하이스코어 체크 및 업데이트
+        currentScore += points;
+        consecutiveHits++;
+        
+        // Add bonus for consecutive hits
+        if (consecutiveHits > 1)
+        {
+            int bonus = consecutiveHitBonus * (consecutiveHits - 1);
+            currentScore += bonus;
+        }
+
+        UpdateScoreDisplay();
+        OnScoreChanged?.Invoke(currentScore);
+
+        // Check and update high score
         if (currentScore > highScore)
         {
             highScore = currentScore;
             SaveHighScore();
             UpdateHighScoreDisplay();
+            OnHighScoreUpdated?.Invoke(highScore);
         }
     }
 
     /// <summary>
-    /// 현재 점수를 0으로 리셋하는 함수
-    /// 새로운 게임 시작 시 사용됩니다.
+    /// Adds score for hitting a target
+    /// </summary>
+    public void OnTargetHit()
+    {
+        AddScore(pointsPerHit);
+    }
+
+    /// <summary>
+    /// Resets consecutive hit counter when missing a target
+    /// </summary>
+    public void OnTargetMiss()
+    {
+        consecutiveHits = 0;
+    }
+
+    /// <summary>
+    /// Resets the current score to 0
+    /// Called when starting a new game.
     /// </summary>
     public void ResetScore()
     {
         currentScore = 0;
+        consecutiveHits = 0;
         UpdateScoreDisplay();
+        OnScoreChanged?.Invoke(currentScore);
     }
 
     /// <summary>
-    /// 현재 점수 UI를 업데이트하는 함수
-    /// scoreText가 설정되어 있을 때만 작동합니다.
+    /// Updates the current score UI display
+    /// Updates both Text and TextMeshPro components if available.
     /// </summary>
     void UpdateScoreDisplay()
     {
+        string scoreString = "Score: " + currentScore.ToString();
+        
+        // Update legacy Text component
         if (scoreText != null)
         {
-            scoreText.text = "Score: " + currentScore.ToString();
+            scoreText.text = scoreString;
+        }
+
+        // Update TextMeshPro component
+        if (scoreTextTMP != null)
+        {
+            scoreTextTMP.text = scoreString;
         }
     }
 
     /// <summary>
-    /// 하이스코어 UI를 업데이트하는 함수
-    /// highScoreText가 설정되어 있을 때만 작동합니다.
+    /// Updates the high score UI display
+    /// Updates both Text and TextMeshPro components if available.
     /// </summary>
     void UpdateHighScoreDisplay()
     {
+        string highScoreString = "High Score: " + highScore.ToString();
+        
+        // Update legacy Text component
         if (highScoreText != null)
         {
-            highScoreText.text = "High Score: " + highScore.ToString();
+            highScoreText.text = highScoreString;
+        }
+
+        // Update TextMeshPro component
+        if (highScoreTextTMP != null)
+        {
+            highScoreTextTMP.text = highScoreString;
         }
     }
 
     /// <summary>
-    /// 하이스코어를 PlayerPrefs에 저장하는 함수
-    /// 게임 종료 시나 하이스코어 갱신 시 자동으로 호출됩니다.
+    /// Saves the high score to PlayerPrefs
+    /// Called automatically when a new high score is achieved.
     /// </summary>
     void SaveHighScore()
     {
@@ -100,8 +172,8 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// PlayerPrefs에서 하이스코어를 로드하는 함수
-    /// 게임 시작 시 자동으로 호출됩니다.
+    /// Loads the high score from PlayerPrefs
+    /// Called automatically when the script starts.
     /// </summary>
     void LoadHighScore()
     {
@@ -110,8 +182,8 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 게임 종료 시 호출되는 함수
-    /// 현재 하이스코어를 저장합니다.
+    /// Called when the game ends
+    /// Saves the current high score.
     /// </summary>
     public void GameOver()
     {
@@ -119,35 +191,85 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 점수를 반환하는 함수
-    /// 다른 스크립트에서 점수 정보가 필요할 때 사용됩니다.
+    /// Returns the current score
+    /// Used by other scripts that need to access the current score.
     /// </summary>
-    /// <returns>현재 점수</returns>
+    /// <returns>Current score</returns>
     public int GetCurrentScore()
     {
         return currentScore;
     }
 
     /// <summary>
-    /// 하이스코어를 반환하는 함수
-    /// 다른 스크립트에서 하이스코어 정보가 필요할 때 사용됩니다.
+    /// Returns the high score
+    /// Used by other scripts that need to access the high score.
     /// </summary>
-    /// <returns>하이스코어</returns>
+    /// <returns>High score</returns>
     public int GetHighScore()
     {
         return highScore;
     }
 
     /// <summary>
-    /// 모든 점수 데이터를 초기화하는 함수
-    /// 하이스코어까지 모두 0으로 리셋합니다.
+    /// Returns the consecutive hit count
+    /// </summary>
+    /// <returns>Number of consecutive hits</returns>
+    public int GetConsecutiveHits()
+    {
+        return consecutiveHits;
+    }
+
+    /// <summary>
+    /// Resets all score data to initial state
+    /// Resets both current score and high score to 0.
     /// </summary>
     public void ResetAllScores()
     {
         currentScore = 0;
         highScore = 0;
+        consecutiveHits = 0;
         PlayerPrefs.DeleteKey(HIGH_SCORE_KEY);
         UpdateScoreDisplay();
         UpdateHighScoreDisplay();
+        OnScoreChanged?.Invoke(currentScore);
+        OnHighScoreUpdated?.Invoke(highScore);
+    }
+
+    /// <summary>
+    /// Sets the points earned per target hit
+    /// </summary>
+    /// <param name="points">Points per hit</param>
+    public void SetPointsPerHit(int points)
+    {
+        pointsPerHit = Mathf.Max(1, points);
+    }
+
+    /// <summary>
+    /// Sets the bonus points for consecutive hits
+    /// </summary>
+    /// <param name="bonus">Bonus points per consecutive hit</param>
+    public void SetConsecutiveHitBonus(int bonus)
+    {
+        consecutiveHitBonus = Mathf.Max(0, bonus);
+    }
+
+    /// <summary>
+    /// Debug function to test score system
+    /// </summary>
+    [ContextMenu("Test Add Score")]
+    public void TestAddScore()
+    {
+        AddScore(10);
+        Debug.Log($"Score added! Current score: {currentScore}, Consecutive hits: {consecutiveHits}");
+    }
+
+    /// <summary>
+    /// Debug function to test target miss
+    /// </summary>
+    [ContextMenu("Test Target Miss")]
+    public void TestTargetMiss()
+    {
+        OnTargetMiss();
+        Debug.Log($"Target missed! Consecutive hits reset to: {consecutiveHits}");
     }
 }

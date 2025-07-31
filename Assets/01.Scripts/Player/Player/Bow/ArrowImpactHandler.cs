@@ -44,6 +44,7 @@ public class ArrowImpactHandler : MonoBehaviour
     private AudioSource _audioSource;
     private Rigidbody _rigidbody;
     private ArrowLauncher _arrowLauncher;
+    private ScoreManager _scoreManager;
 
     void Start()
     {
@@ -67,6 +68,9 @@ public class ArrowImpactHandler : MonoBehaviour
 
         // ArrowLauncher 컴포넌트 찾기
         _arrowLauncher = GetComponent<ArrowLauncher>();
+
+        // ScoreManager 컴포넌트 찾기
+        _scoreManager = FindObjectOfType<ScoreManager>();
     }
 
     /// <summary>
@@ -142,20 +146,23 @@ public class ArrowImpactHandler : MonoBehaviour
     /// <param name="target">충돌한 타겟 오브젝트</param>
     private void ProcessScore(GameObject target)
     {
-        ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
-        if (scoreManager != null)
+        if (_scoreManager != null)
         {
+            // 새로운 ScoreManager의 OnTargetHit 메서드 사용
+            _scoreManager.OnTargetHit();
+            
+            // 추가 보너스 점수 (태그별)
             if (target.CompareTag("Enemy"))
             {
-                scoreManager.AddScore(hitScore);
+                _scoreManager.AddScore(hitScore - _scoreManager.pointsPerHit); // 기본 점수는 이미 추가됨
             }
             else if (target.CompareTag("Target"))
             {
-                scoreManager.AddScore(hitScore);
+                _scoreManager.AddScore(hitScore - _scoreManager.pointsPerHit); // 기본 점수는 이미 추가됨
             }
             else
             {
-                scoreManager.AddScore(5); // 기본 점수 (기타 오브젝트)
+                _scoreManager.AddScore(5); // 기본 점수 (기타 오브젝트)
             }
         }
     }
@@ -226,10 +233,9 @@ public class ArrowImpactHandler : MonoBehaviour
     /// </summary>
     private void AddDestroyScore()
     {
-        ScoreManager scoreManager = FindObjectOfType<ScoreManager>();
-        if (scoreManager != null)
+        if (_scoreManager != null)
         {
-            scoreManager.AddScore(destroyScore);
+            _scoreManager.AddScore(destroyScore);
         }
     }
 
@@ -239,10 +245,14 @@ public class ArrowImpactHandler : MonoBehaviour
     /// </summary>
     void OnBecameInvisible()
     {
-        if (!_hasHit)
+        // 화살이 빗나갔을 때 연속 히트 카운터 리셋
+        if (_scoreManager != null && !_hasHit)
         {
-            Destroy(gameObject, 2f);
+            _scoreManager.OnTargetMiss();
         }
+
+        // 화살 파괴
+        Destroy(gameObject, destroyDelay);
     }
 
     /// <summary>
