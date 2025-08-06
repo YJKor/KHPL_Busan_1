@@ -8,7 +8,7 @@ public class Arrow : MonoBehaviour
     public ArrowSpawner spawner; // ArrowSpawner 참조
     private XRGrabInteractable grabInteractable; // VR 상호작용 컴포넌트
     private Rigidbody rb; // 물리 컴포넌트
-    public float arrowPower = 10f;
+    private int damage = 10; // 화살 데미지
 
     void Start()
     {
@@ -38,12 +38,25 @@ public class Arrow : MonoBehaviour
         if (rb != null)
         {
             rb.isKinematic = false;
-            rb.AddForce(transform.forward * arrowPower, ForceMode.Impulse);
+            rb.AddForce(transform.forward * 10f, ForceMode.Impulse);
         }
         // 스포너에 발사 알림
         if (spawner != null)
         {
             spawner.OnArrowShot();
+        }
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        // 적과 충돌 시 데미지 전달
+        if (collision.gameObject.CompareTag("Enemy"))
+        {
+            Enemy enemy = collision.gameObject.GetComponent<Enemy>();
+            if (enemy != null)
+            {
+                enemy.TakeDamage(damage);
+            }
         }
     }
 }
