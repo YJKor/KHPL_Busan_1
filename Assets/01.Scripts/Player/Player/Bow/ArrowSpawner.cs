@@ -6,66 +6,29 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class ArrowSpawner : MonoBehaviour
 {
-    [SerializeField] private GameObject _arrowPrefab;
-    [SerializeField] private GameObject _notchPoint;
-    [SerializeField] private float _spawnDelay = 1;
+    public GameObject arrowPrefab; // 화살 프리팹
+    public Transform spawnPoint; // 화살 생성 위치 (활 손잡이)
 
-    private XRGrabInteractable _bow;
-    private XRPullInteractable _pullInteractable;
-    private bool _arrowNotched = false;
-    private GameObject _currentArrow = null;
-
-    private void Start()
+    public void SpawnArrow()
     {
-        _bow = GetComponent<XRGrabInteractable>();
-        _pullInteractable = GetComponentInChildren<XRPullInteractable>();
-
-        if(_pullInteractable != null )
+        // 화살을 spawnPoint 위치와 회전에 생성하고, spawnPoint의 자식으로 설정
+        GameObject newArrow = Instantiate(arrowPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        Arrow arrowScript = newArrow.GetComponent<Arrow>();
+        if (arrowScript != null)
         {
-            _pullInteractable.PullActionReleased += NotchEmpty;
+            arrowScript.spawner = this; // Arrow 스크립트에 spawner 참조 설정
         }
     }
 
-    private void OnDestroy()
+    public void OnArrowShot()
     {
-        if(_pullInteractable != null)
-        {
-            _pullInteractable.PullActionReleased -= NotchEmpty;
-        }
+        // 화살이 발사되면 새 화살 생성
+        SpawnArrow();
     }
 
-    private void Update()
+    void Start()
     {
-        if(_bow.isSelected && !_arrowNotched)
-        {
-            _arrowNotched = true;
-            StartCoroutine(DelayedSpawn());
-        }
-
-        if (_bow.isSelected && _currentArrow != null)
-        {
-            Destroy(_currentArrow);
-            NotchEmpty(1f);
-        }
+        // 게임 시작 시 첫 화살 생성
+        SpawnArrow();
     }
-
-    private void NotchEmpty(float value)
-    {
-        _arrowNotched = false;
-        _currentArrow = null;
-    }
-
-    private IEnumerator DelayedSpawn()
-    {
-        yield return new WaitForSeconds(_spawnDelay);
-
-        _currentArrow = Instantiate(_arrowPrefab, _notchPoint.transform);
-
-        ArrowLauncher launcher = _currentArrow.GetComponent<ArrowLauncher>();
-        if(launcher != null && _pullInteractable != null)
-        {
-            launcher.Initialize(_pullInteractable);
-        }
-    }
-
 }
