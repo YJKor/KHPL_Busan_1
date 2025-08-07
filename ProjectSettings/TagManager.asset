@@ -12,6 +12,7 @@ TagManager:
   - Arrow
   - CastleWall
   - StopMobility
+  - Enemy
   layers:
   - Default
   - TransparentFX
