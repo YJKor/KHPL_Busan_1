@@ -17,10 +17,10 @@ TagManager:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - bow
+  - 
   - Water
   - UI
-  - arrow
+  - Arrow
   - 
   - PostProcessing
   - 
@@ -34,7 +34,7 @@ TagManager:
   - 
   - 
   - 
-  - bow
+  - Bow
   - 
   - 
   - 

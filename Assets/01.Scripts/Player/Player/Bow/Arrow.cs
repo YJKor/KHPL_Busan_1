@@ -5,6 +5,9 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 public class Arrow : MonoBehaviour
 {
+    [Header("활 시위 사운드")]
+    [Tooltip("활 시위를 당길 때 재생되는 사운드")]
+    public AudioClip bowStringPullSound;
     public ArrowSpawner spawner; // ArrowSpawner 참조
     private XRGrabInteractable grabInteractable; // VR 상호작용 컴포넌트
     private Rigidbody rb; // 물리 컴포넌트
@@ -31,6 +34,13 @@ public class Arrow : MonoBehaviour
         // 화살 놓을 때 발사
         Shoot();
     }
+    public void PlayBowStringPullSound()
+    {
+        if (_bowAudioSource != null && bowStringPullSound != null)
+        {
+            _bowAudioSource.PlayOneShot(bowStringPullSound);
+        }
+    }
 
     void Shoot()
     {
@@ -46,8 +56,6 @@ public class Arrow : MonoBehaviour
             spawner.OnArrowShot();
         }
     }
-
-
     void OnCollisionEnter(Collision collision)
     {
         // 적과 충돌 시 데미지 전달

@@ -33,12 +33,26 @@ namespace UnityEngine.XR.Interaction.Toolkit.Interactables
         {
             _PullingInteractor = args.interactorObject;
             PullStarted?.Invoke();
+            
+            // 활 시위 당김 사운드 재생
+            if (BowAudioController.Instance != null)
+            {
+                BowAudioController.Instance.PlayBowStringPullSound();
+            }
         }
 
         public void Release()
         {
             PullActionReleased?.Invoke(pullAmount);
             PullEnded?.Invoke();
+            
+            // 활 시위 놓기 사운드 재생
+            if (BowAudioController.Instance != null)
+            {
+                BowAudioController.Instance.PlayBowStringReleaseSound();
+                BowAudioController.Instance.PlayArrowShootSound();
+            }
+            
             _PullingInteractor = null;
             pullAmount = 0f;
             _notchPoint.transform.localPosition =
