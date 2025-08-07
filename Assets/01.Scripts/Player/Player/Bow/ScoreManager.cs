@@ -21,18 +21,13 @@ public class ScoreManager : MonoBehaviour
         }
     }
 
-    void Start()
-    {
-        UpdateScoreText(); // 초기 점수 표시
-    }
-
     public void AddScore(int points)
     {
         score += points;
-        UpdateScoreText();
+        UpdateScoreText(score);
     }
 
-    void UpdateScoreText()
+    void UpdateScoreText(int score)
     {
         if (scoreText != null)
         {
