@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
-using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class ArrowSpawner : MonoBehaviour
 {
@@ -26,30 +25,23 @@ public class ArrowSpawner : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && currentArrow != null)
-        {
-            Rigidbody rb = currentArrow.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.isKinematic = false;
-                rb.AddForce(spawnPoint.forward * 20f, ForceMode.Impulse);
-                if (fireSound != null && audioSource != null)
-                {
-                    audioSource.PlayOneShot(fireSound);
-                }
-            }
-            SpawnArrow();
-        }
+        //if (Input.GetKeyDown(KeyCode.Space) && currentArrow != null)
+        //{
+        //    Rigidbody rb = currentArrow.GetComponent<Rigidbody>();
+        //    if (rb != null)
+        //    {
+        //        rb.isKinematic = false;
+        //        rb.AddForce(spawnPoint.forward * 20f, ForceMode.Impulse);
+        //        if (fireSound != null && audioSource != null)
+        //        {
+        //            audioSource.PlayOneShot(fireSound);
+        //        }
+        //    }
+        //    SpawnArrow();
+        //}
     }
 
-    //void SpawnArrow()
-    //{
-    //    currentArrow = Instantiate(arrowPrefab, spawnPoint.position, spawnPoint.rotation);
-    //    if (drawSound != null && audioSource != null)
-    //    {
-    //        audioSource.PlayOneShot(drawSound);
-    //    }
-    //}
+    
     public void SpawnArrow()
     {
         currentArrow = Instantiate(arrowPrefab, spawnPoint.position, spawnPoint.rotation);
