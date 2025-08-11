@@ -25,20 +25,7 @@ public class ArrowSpawner : MonoBehaviour
 
     void Update()
     {
-        //if (Input.GetKeyDown(KeyCode.Space) && currentArrow != null)
-        //{
-        //    Rigidbody rb = currentArrow.GetComponent<Rigidbody>();
-        //    if (rb != null)
-        //    {
-        //        rb.isKinematic = false;
-        //        rb.AddForce(spawnPoint.forward * 20f, ForceMode.Impulse);
-        //        if (fireSound != null && audioSource != null)
-        //        {
-        //            audioSource.PlayOneShot(fireSound);
-        //        }
-        //    }
-        //    SpawnArrow();
-        //}
+       
     }
 
     
