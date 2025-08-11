@@ -248,3 +248,4 @@ Debug.Log($"배경음악 볼륨: {BowAudioController.Instance.musicVolume}");
 ---
 
 **참고**: 이 시스템은 Defense_Map 씬의 활게임에 특화되어 있지만, 다른 씬에서도 재사용할 수 있습니다.
+

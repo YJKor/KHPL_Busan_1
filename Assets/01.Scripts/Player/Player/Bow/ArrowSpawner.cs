@@ -6,29 +6,82 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class ArrowSpawner : MonoBehaviour
 {
-    public GameObject arrowPrefab; // 화살 프리팹
-    public Transform spawnPoint; // 화살 생성 위치 (활 손잡이)
+    public GameObject arrowPrefab;
+    public Transform spawnPoint;
+    private GameObject currentArrow;
+    public AudioClip drawSound; // 활시위 당기는 소리
+    public AudioClip fireSound; // 화살 발사 소리
+    private AudioSource audioSource;
 
+    void Start()
+    {
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.spatialBlend = 1f; // VR용 3D 사운드
+        }
+        SpawnArrow();
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space) && currentArrow != null)
+        {
+            Rigidbody rb = currentArrow.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = false;
+                rb.AddForce(spawnPoint.forward * 20f, ForceMode.Impulse);
+                if (fireSound != null && audioSource != null)
+                {
+                    audioSource.PlayOneShot(fireSound);
+                }
+            }
+            SpawnArrow();
+        }
+    }
+
+    //void SpawnArrow()
+    //{
+    //    currentArrow = Instantiate(arrowPrefab, spawnPoint.position, spawnPoint.rotation);
+    //    if (drawSound != null && audioSource != null)
+    //    {
+    //        audioSource.PlayOneShot(drawSound);
+    //    }
+    //}
     public void SpawnArrow()
     {
-        // 화살을 spawnPoint 위치와 회전에 생성하고, spawnPoint의 자식으로 설정
-        GameObject newArrow = Instantiate(arrowPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
-        Arrow arrowScript = newArrow.GetComponent<Arrow>();
+        currentArrow = Instantiate(arrowPrefab, spawnPoint.position, spawnPoint.rotation);
+
+        Arrow arrowScript = currentArrow.GetComponent<Arrow>();
         if (arrowScript != null)
         {
-            arrowScript.spawner = this; // Arrow 스크립트에 spawner 참조 설정
+            arrowScript.spawner = this;
         }
+
+        PlayDrawSound();
     }
 
     public void OnArrowShot()
     {
-        // 화살이 발사되면 새 화살 생성
         SpawnArrow();
     }
 
-    void Start()
+    public void PlayDrawSound()
     {
-        // 게임 시작 시 첫 화살 생성
-        SpawnArrow();
+        if (drawSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(drawSound);
+        }
+    }
+
+    public void PlayFireSound()
+    {
+        if (fireSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(fireSound);
+        }
     }
 }
+
